@@ -1,7 +1,7 @@
 /*
- * README
+ * hdhomerun.h
  *
- * Copyright © 2005-2009 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright Â© 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,12 +18,15 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-Top level include file: hdhomerun.h
-
-Top level API: hdhomerun_device. See hdhomerun_device.h for documentation.
-
-The hdhomerun_device API should be used rather than the low level control and video APIs required with previous versions.
-
-Additional libraries required:
-- pthread
-- iphlpapi (windows only)
+#include "hdhomerun_os.h"
+#include "hdhomerun_types.h"
+#include "hdhomerun_pkt.h"
+#include "hdhomerun_sock.h"
+#include "hdhomerun_debug.h"
+#include "hdhomerun_discover.h"
+#include "hdhomerun_control.h"
+#include "hdhomerun_video.h"
+#include "hdhomerun_channels.h"
+#include "hdhomerun_channelscan.h"
+#include "hdhomerun_device.h"
+#include "hdhomerun_device_selector.h"
