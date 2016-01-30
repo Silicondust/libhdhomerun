@@ -23,7 +23,7 @@
 #define HDHOMERUN_DISOCVER_MAX_SOCK_COUNT 16
 
 struct hdhomerun_discover_sock_t {
-	hdhomerun_sock_t sock;
+	struct hdhomerun_sock_t *sock;
 	bool_t detected;
 	uint32_t local_ip;
 	uint32_t subnet_mask;
@@ -54,8 +54,9 @@ static bool_t hdhomerun_discover_sock_add(struct hdhomerun_discover_t *ds, uint3
 	}
 
 	/* Create socket. */
-	hdhomerun_sock_t sock = hdhomerun_sock_create_udp();
-	if (sock == HDHOMERUN_SOCK_INVALID) {
+	struct hdhomerun_sock_t *sock = hdhomerun_sock_create_udp();
+	if (!sock) {
+		hdhomerun_debug_printf(ds->dbg, "discover: failed to allocate socket (%d)\n", hdhomerun_sock_getlasterror());
 		return FALSE;
 	}
 

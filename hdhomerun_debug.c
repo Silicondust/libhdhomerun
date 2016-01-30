@@ -1,7 +1,7 @@
 /*
  * hdhomerun_debug.c
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2007-2016 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -65,7 +65,7 @@ struct hdhomerun_debug_t
 
 	char *file_name;
 	FILE *file_fp;
-	hdhomerun_sock_t sock;
+	struct hdhomerun_sock_t *sock;
 };
 
 static THREAD_FUNC_PREFIX hdhomerun_debug_thread_execute(void *arg);
@@ -76,8 +76,6 @@ struct hdhomerun_debug_t *hdhomerun_debug_create(void)
 	if (!dbg) {
 		return NULL;
 	}
-
-	dbg->sock = HDHOMERUN_SOCK_INVALID;
 
 	pthread_mutex_init(&dbg->print_lock, NULL);
 	pthread_mutex_init(&dbg->queue_lock, NULL);
@@ -109,7 +107,7 @@ void hdhomerun_debug_destroy(struct hdhomerun_debug_t *dbg)
 	if (dbg->file_fp) {
 		fclose(dbg->file_fp);
 	}
-	if (dbg->sock != HDHOMERUN_SOCK_INVALID) {
+	if (dbg->sock) {
 		hdhomerun_sock_destroy(dbg->sock);
 	}
 
@@ -124,9 +122,9 @@ static void hdhomerun_debug_close_internal(struct hdhomerun_debug_t *dbg)
 		dbg->file_fp = NULL;
 	}
 
-	if (dbg->sock != HDHOMERUN_SOCK_INVALID) {
+	if (dbg->sock) {
 		hdhomerun_sock_destroy(dbg->sock);
-		dbg->sock = HDHOMERUN_SOCK_INVALID;
+		dbg->sock = NULL;
 	}
 }
 
@@ -350,7 +348,7 @@ static bool_t hdhomerun_debug_output_message_file(struct hdhomerun_debug_t *dbg,
 /* Send lock held by caller */
 static bool_t hdhomerun_debug_output_message_sock(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
 {
-	if (dbg->sock == HDHOMERUN_SOCK_INVALID) {
+	if (!dbg->sock) {
 		uint64_t current_time = getcurrenttime();
 		if (current_time < dbg->connect_delay) {
 			return FALSE;
@@ -358,7 +356,7 @@ static bool_t hdhomerun_debug_output_message_sock(struct hdhomerun_debug_t *dbg,
 		dbg->connect_delay = current_time + HDHOMERUN_DEBUG_CONNECT_RETRY_TIME;
 
 		dbg->sock = hdhomerun_sock_create_tcp();
-		if (dbg->sock == HDHOMERUN_SOCK_INVALID) {
+		if (!dbg->sock) {
 			return FALSE;
 		}
 

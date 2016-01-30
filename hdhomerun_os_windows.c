@@ -1,7 +1,7 @@
 /*
  * hdhomerun_os_windows.c
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -18,12 +18,21 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "hdhomerun_os.h"
+#include "hdhomerun.h"
 
-static DWORD random_get32_context_tls = TlsAlloc();
-
+#if defined(_WINRT)
 uint32_t random_get32(void)
 {
+	return (uint32_t)getcurrenttime();
+}
+#else
+uint32_t random_get32(void)
+{
+	static DWORD random_get32_context_tls = 0xFFFFFFFF;
+	if (random_get32_context_tls == 0xFFFFFFFF) {
+		random_get32_context_tls = TlsAlloc();
+	}
+
 	HCRYPTPROV *phProv = (HCRYPTPROV *)TlsGetValue(random_get32_context_tls);
 	if (!phProv) {
 		phProv = (HCRYPTPROV *)calloc(1, sizeof(HCRYPTPROV));
@@ -38,6 +47,7 @@ uint32_t random_get32(void)
 
 	return Result;
 }
+#endif
 
 uint64_t getcurrenttime(void)
 {
@@ -100,6 +110,31 @@ void pthread_mutex_unlock(pthread_mutex_t *mutex)
 	ReleaseMutex(*mutex);
 }
 
+void thread_cond_init(thread_cond_t *cond)
+{
+	*cond = CreateEvent(NULL, FALSE, FALSE, NULL);
+}
+
+void thread_cond_dispose(thread_cond_t *cond)
+{
+	CloseHandle(*cond);
+}
+
+void thread_cond_signal(thread_cond_t *cond)
+{
+	SetEvent(*cond);
+}
+
+void thread_cond_wait(thread_cond_t *cond)
+{
+	WaitForSingleObject(*cond, INFINITE);
+}
+
+void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
+{
+	WaitForSingleObject(*cond, (DWORD)max_wait_time);
+}
+
 bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
 {
 	if (buffer >= end) {
@@ -128,25 +163,4 @@ bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...)
 	bool_t result = hdhomerun_vsprintf(buffer, end, fmt, ap);
 	va_end(ap);
 	return result;
-}
-
-/*
- * The console output format should be set to UTF-8, however in XP and Vista this breaks batch file processing.
- * Attempting to restore on exit fails to restore if the program is terminated by the user.
- * Solution - set the output format each printf.
- */
-void console_vprintf(const char *fmt, va_list ap)
-{
-	UINT cp = GetConsoleOutputCP();
-	SetConsoleOutputCP(CP_UTF8);
-	vprintf(fmt, ap);
-	SetConsoleOutputCP(cp);
-}
-
-void console_printf(const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	console_vprintf(fmt, ap);
-	va_end(ap);
 }

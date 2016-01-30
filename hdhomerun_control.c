@@ -1,7 +1,7 @@
 /*
  * hdhomerun_control.c
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -30,7 +30,7 @@ struct hdhomerun_control_sock_t {
 	uint32_t desired_device_ip;
 	uint32_t actual_device_id;
 	uint32_t actual_device_ip;
-	hdhomerun_sock_t sock;
+	struct hdhomerun_sock_t *sock;
 	struct hdhomerun_debug_t *dbg;
 	struct hdhomerun_pkt_t tx_pkt;
 	struct hdhomerun_pkt_t rx_pkt;
@@ -38,12 +38,12 @@ struct hdhomerun_control_sock_t {
 
 static void hdhomerun_control_close_sock(struct hdhomerun_control_sock_t *cs)
 {
-	if (cs->sock == HDHOMERUN_SOCK_INVALID) {
+	if (!cs->sock) {
 		return;
 	}
 
 	hdhomerun_sock_destroy(cs->sock);
-	cs->sock = HDHOMERUN_SOCK_INVALID;
+	cs->sock = NULL;
 }
 
 void hdhomerun_control_set_device(struct hdhomerun_control_sock_t *cs, uint32_t device_id, uint32_t device_ip)
@@ -65,7 +65,6 @@ struct hdhomerun_control_sock_t *hdhomerun_control_create(uint32_t device_id, ui
 	}
 
 	cs->dbg = dbg;
-	cs->sock = HDHOMERUN_SOCK_INVALID;
 	hdhomerun_control_set_device(cs, device_id, device_ip);
 
 	return cs;
@@ -79,7 +78,7 @@ void hdhomerun_control_destroy(struct hdhomerun_control_sock_t *cs)
 
 static bool_t hdhomerun_control_connect_sock(struct hdhomerun_control_sock_t *cs)
 {
-	if (cs->sock != HDHOMERUN_SOCK_INVALID) {
+	if (cs->sock) {
 		return TRUE;
 	}
 
@@ -103,7 +102,7 @@ static bool_t hdhomerun_control_connect_sock(struct hdhomerun_control_sock_t *cs
 
 	/* Create socket. */
 	cs->sock = hdhomerun_sock_create_tcp();
-	if (cs->sock == HDHOMERUN_SOCK_INVALID) {
+	if (!cs->sock) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: failed to create socket (%d)\n", hdhomerun_sock_getlasterror());
 		return FALSE;
 	}
@@ -216,7 +215,7 @@ static int hdhomerun_control_send_recv_internal(struct hdhomerun_control_sock_t 
 
 	int i;
 	for (i = 0; i < 2; i++) {
-		if (cs->sock == HDHOMERUN_SOCK_INVALID) {
+		if (!cs->sock) {
 			if (!hdhomerun_control_connect_sock(cs)) {
 				hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_send_recv: connect failed\n");
 				return -1;

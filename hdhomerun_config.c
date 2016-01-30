@@ -1,7 +1,7 @@
 /*
  * hdhomerun_config.c
  *
- * Copyright © 2006-2008 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -19,16 +19,6 @@
  */
 
 #include "hdhomerun.h"
-
-/*
- * The console output format should be set to UTF-8, however in XP and Vista this breaks batch file processing.
- * Attempting to restore on exit fails to restore if the program is terminated by the user.
- * Solution - set the output format each printf.
- */
-#if defined(__WINDOWS__)
-#define printf console_printf
-#define vprintf console_vprintf
-#endif
 
 static const char *appname;
 
@@ -413,7 +403,7 @@ static int cmd_save(const char *tuner_str, const char *filename)
 			}
 
 			/* Windows - indicate activity to suppress auto sleep mode. */
-			#if defined(__WINDOWS__)
+			#if defined(_WIN32)
 			SetThreadExecutionState(ES_SYSTEM_REQUIRED);
 			#endif
 
@@ -625,7 +615,9 @@ static int main_cmd(int argc, char *argv[])
 
 static int main_internal(int argc, char *argv[])
 {
-#if defined(__WINDOWS__)
+#if defined(_WIN32)
+	/* Configure console for UTF-8. */
+	SetConsoleOutputCP(CP_UTF8);
 	/* Initialize network socket support. */
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	WSADATA wsaData;

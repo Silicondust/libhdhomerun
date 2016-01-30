@@ -1,7 +1,7 @@
 /*
  * hdhomerun_os_posix.h
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -38,25 +38,35 @@
 #include <netdb.h>
 #include <pthread.h>
 
-typedef int bool_t;
+typedef uint8_t bool_t;
 typedef void (*sig_t)(int);
 
-#define LIBTYPE
-#define console_vprintf vprintf
-#define console_printf printf
+typedef struct {
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+} thread_cond_t;
+
+#define LIBHDHOMERUN_API
 #define THREAD_FUNC_PREFIX void *
+#define THREAD_FUNC_RESULT NULL
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern LIBTYPE uint32_t random_get32(void);
-extern LIBTYPE uint64_t getcurrenttime(void);
-extern LIBTYPE void msleep_approx(uint64_t ms);
-extern LIBTYPE void msleep_minimum(uint64_t ms);
+extern LIBHDHOMERUN_API uint32_t random_get32(void);
+extern LIBHDHOMERUN_API uint64_t getcurrenttime(void);
+extern LIBHDHOMERUN_API void msleep_approx(uint64_t ms);
+extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 
-extern LIBTYPE bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap);
-extern LIBTYPE bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...);
+extern LIBHDHOMERUN_API void thread_cond_init(thread_cond_t *cond);
+extern LIBHDHOMERUN_API void thread_cond_dispose(thread_cond_t *cond);
+extern LIBHDHOMERUN_API void thread_cond_signal(thread_cond_t *cond);
+extern LIBHDHOMERUN_API void thread_cond_wait(thread_cond_t *cond);
+extern LIBHDHOMERUN_API void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time);
+
+extern LIBHDHOMERUN_API bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap);
+extern LIBHDHOMERUN_API bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...);
 
 #ifdef __cplusplus
 }

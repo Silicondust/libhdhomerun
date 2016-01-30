@@ -1,7 +1,7 @@
 /*
  * hdhomerun_device_selector.c
  *
- * Copyright © 2009-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2009-2016 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -56,7 +56,7 @@ void hdhomerun_device_selector_destroy(struct hdhomerun_device_selector_t *hds, 
 	free(hds);
 }
 
-LIBTYPE int hdhomerun_device_selector_get_device_count(struct hdhomerun_device_selector_t *hds)
+int hdhomerun_device_selector_get_device_count(struct hdhomerun_device_selector_t *hds)
 {
 	return (int)hds->hd_count;
 }
@@ -263,7 +263,7 @@ int hdhomerun_device_selector_load_from_file(struct hdhomerun_device_selector_t 
 	return count;
 }
 
-#if defined(__WINDOWS__)
+#if defined(_WIN32) && !defined(_WINRT)
 int hdhomerun_device_selector_load_from_windows_registry(struct hdhomerun_device_selector_t *hds, wchar_t *wsource)
 {
 	HKEY tuners_key;
@@ -374,8 +374,8 @@ static bool_t hdhomerun_device_selector_choose_test(struct hdhomerun_device_sele
 	/*
 	 * Test local port.
 	 */
-	hdhomerun_sock_t test_sock = hdhomerun_sock_create_udp();
-	if (test_sock == HDHOMERUN_SOCK_INVALID) {
+	struct hdhomerun_sock_t *test_sock = hdhomerun_sock_create_udp();
+	if (!test_sock) {
 		hdhomerun_debug_printf(hds->dbg, "hdhomerun_device_selector_choose_test: device %s in use, failed to create test sock\n", name);
 		return FALSE;
 	}

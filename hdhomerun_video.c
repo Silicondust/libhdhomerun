@@ -1,7 +1,7 @@
 /*
  * hdhomerun_video.c
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -23,7 +23,7 @@
 struct hdhomerun_video_sock_t {
 	pthread_mutex_t lock;
 	struct hdhomerun_debug_t *dbg;
-	hdhomerun_sock_t sock;
+	struct hdhomerun_sock_t *sock;
 
 	volatile size_t head;
 	volatile size_t tail;
@@ -56,7 +56,6 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	}
 
 	vs->dbg = dbg;
-	vs->sock = HDHOMERUN_SOCK_INVALID;
 	pthread_mutex_init(&vs->lock, NULL);
 
 	/* Reset sequence tracking. */
@@ -79,14 +78,13 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	
 	/* Create socket. */
 	vs->sock = hdhomerun_sock_create_udp();
-	if (vs->sock == HDHOMERUN_SOCK_INVALID) {
+	if (!vs->sock) {
 		hdhomerun_debug_printf(dbg, "hdhomerun_video_create: failed to allocate socket\n");
 		goto error;
 	}
 
 	/* Expand socket buffer size. */
-	int rx_size = 1024 * 1024;
-	setsockopt(vs->sock, SOL_SOCKET, SO_RCVBUF, (char *)&rx_size, sizeof(rx_size));
+	hdhomerun_sock_set_recv_buffer_size(vs->sock, 1024 * 1024);
 
 	/* Bind socket. */
 	if (!hdhomerun_sock_bind(vs->sock, INADDR_ANY, listen_port, allow_port_reuse)) {
@@ -104,7 +102,7 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	return vs;
 
 error:
-	if (vs->sock != HDHOMERUN_SOCK_INVALID) {
+	if (vs->sock) {
 		hdhomerun_sock_destroy(vs->sock);
 	}
 	if (vs->buffer) {
@@ -125,7 +123,7 @@ void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 	free(vs);
 }
 
-hdhomerun_sock_t hdhomerun_video_get_sock(struct hdhomerun_video_sock_t *vs)
+struct hdhomerun_sock_t *hdhomerun_video_get_sock(struct hdhomerun_video_sock_t *vs)
 {
 	return vs->sock;
 }
@@ -281,7 +279,7 @@ static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 		pthread_mutex_unlock(&vs->lock);
 	}
 
-	return NULL;
+	return THREAD_FUNC_RESULT;
 }
 
 uint8_t *hdhomerun_video_recv(struct hdhomerun_video_sock_t *vs, size_t max_size, size_t *pactual_size)

@@ -45,14 +45,14 @@ struct hdhomerun_discover_device_t {
  * Returns the number of devices found.
  * Retruns -1 on error.
  */
-extern LIBTYPE int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
 
 /*
  * Optional: persistent discover instance available for discover polling use.
  */
-extern LIBTYPE struct hdhomerun_discover_t *hdhomerun_discover_create(struct hdhomerun_debug_t *dbg);
-extern LIBTYPE void hdhomerun_discover_destroy(struct hdhomerun_discover_t *ds);
-extern LIBTYPE int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API struct hdhomerun_discover_t *hdhomerun_discover_create(struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API void hdhomerun_discover_destroy(struct hdhomerun_discover_t *ds);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
 
 /*
  * Verify that the device ID given is valid.
@@ -63,7 +63,7 @@ extern LIBTYPE int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_
  * Returns TRUE if valid.
  * Returns FALSE if not valid.
  */
-extern LIBTYPE bool_t hdhomerun_discover_validate_device_id(uint32_t device_id);
+extern LIBHDHOMERUN_API bool_t hdhomerun_discover_validate_device_id(uint32_t device_id);
 
 /*
  * Detect if an IP address is multicast.
@@ -71,7 +71,7 @@ extern LIBTYPE bool_t hdhomerun_discover_validate_device_id(uint32_t device_id);
  * Returns TRUE if multicast.
  * Returns FALSE if zero, unicast, expermental, or broadcast.
  */
-extern LIBTYPE bool_t hdhomerun_discover_is_ip_multicast(uint32_t ip_addr);
+extern LIBHDHOMERUN_API bool_t hdhomerun_discover_is_ip_multicast(uint32_t ip_addr);
 
 #ifdef __cplusplus
 }

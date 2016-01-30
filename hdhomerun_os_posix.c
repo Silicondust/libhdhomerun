@@ -1,7 +1,7 @@
 /*
  * hdhomerun_os_posix.c
  *
- * Copyright © 2006-2010 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -21,8 +21,48 @@
 #include "hdhomerun_os.h"
 
 #if defined(__APPLE__)
+
 #include <mach/clock.h>
 #include <mach/mach.h>
+
+static pthread_once_t clock_monotonic_once = PTHREAD_ONCE_INIT;
+static clock_serv_t clock_monotonic_clock_serv;
+
+static void clock_monotonic_init(void)
+{
+	host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clock_monotonic_clock_serv);
+}
+
+static inline void clock_monotonic_timespec(struct timespec *ts)
+{
+	pthread_once(&clock_monotonic_once, clock_monotonic_init);
+
+	struct mach_timespec mt;
+	clock_get_time(clock_monotonic_clock_serv, &mt);
+	ts->tv_nsec = mt.tv_nsec;
+	ts->tv_sec = mt.tv_sec;
+}
+
+static inline void clock_realtime_timespec(struct timespec *ts)
+{
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	ts->tv_nsec = tv.tv_usec * 1000;
+	ts->tv_sec = tv.tv_sec;
+}
+
+#else
+
+static inline void clock_monotonic_timespec(struct timespec *ts)
+{
+	clock_gettime(CLOCK_MONOTONIC, ts);
+}
+
+static inline void clock_realtime_timespec(struct timespec *ts)
+{
+	clock_gettime(CLOCK_REALTIME, ts);
+}
+
 #endif
 
 static pthread_once_t random_get32_once = PTHREAD_ONCE_INIT;
@@ -51,22 +91,9 @@ uint32_t random_get32(void)
 
 uint64_t getcurrenttime(void)
 {
-#if defined(CLOCK_MONOTONIC)
-	struct timespec t;
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	return ((uint64_t)t.tv_sec * 1000) + (t.tv_nsec / 1000000);
-#elif defined(__APPLE__)
-	clock_serv_t clock_serv;
-	host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &clock_serv);
-
-	struct mach_timespec t;
-	clock_get_time(clock_serv, &t);
-
-	mach_port_deallocate(mach_task_self(), clock_serv);
-	return ((uint64_t)t.tv_sec * 1000) + (t.tv_nsec / 1000000);
-#else
-#error no clock source for getcurrenttime()
-#endif
+	struct timespec ts;
+	clock_monotonic_timespec(&ts);
+	return ((uint64_t)ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
 }
 
 void msleep_approx(uint64_t ms)
@@ -95,6 +122,44 @@ void msleep_minimum(uint64_t ms)
 
 		msleep_approx(stop_time - current_time);
 	}
+}
+
+void thread_cond_init(thread_cond_t *cond)
+{
+	pthread_mutex_init(&cond->lock, NULL);
+	pthread_cond_init(&cond->cond, NULL);
+}
+
+void thread_cond_dispose(thread_cond_t *cond)
+{
+}
+
+void thread_cond_signal(thread_cond_t *cond)
+{
+	pthread_mutex_lock(&cond->lock);
+	pthread_cond_signal(&cond->cond);
+	pthread_mutex_unlock(&cond->lock);
+}
+
+void thread_cond_wait(thread_cond_t *cond)
+{
+	pthread_mutex_lock(&cond->lock);
+	pthread_cond_wait(&cond->cond, &cond->lock);
+	pthread_mutex_unlock(&cond->lock);
+}
+
+void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
+{
+	struct timespec ts;
+	clock_realtime_timespec(&ts);
+
+	uint64_t tv_nsec = (uint64_t)ts.tv_nsec + (max_wait_time * 1000000);
+	ts.tv_nsec = (long)(tv_nsec % 1000000000);
+	ts.tv_sec += (time_t)(tv_nsec / 1000000000);
+
+	pthread_mutex_lock(&cond->lock);
+	pthread_cond_timedwait(&cond->cond, &cond->lock, &ts);
+	pthread_mutex_unlock(&cond->lock);
 }
 
 bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
