@@ -50,7 +50,7 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 	size_t ifreq_buffer_size = 1024;
 
 	while (1) {
-		ifc.ifc_len = ifreq_buffer_size;
+		ifc.ifc_len = (int)ifreq_buffer_size;
 		ifc.ifc_buf = (char *)malloc(ifreq_buffer_size);
 		if (!ifc.ifc_buf) {
 			close(sock);
@@ -346,7 +346,7 @@ bool_t hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_add
 bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t length, uint64_t timeout)
 {
 	const uint8_t *ptr = (const uint8_t *)data;
-	int ret = send(sock->sock, ptr, length, MSG_NOSIGNAL);
+	ssize_t ret = send(sock->sock, ptr, length, MSG_NOSIGNAL);
 	if (ret >= length) {
 		return TRUE;
 	}
@@ -408,7 +408,7 @@ bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr
 	sock_addr.sin_port = htons(remote_port);
 
 	const uint8_t *ptr = (const uint8_t *)data;
-	int ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+	ssize_t ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
 	if (ret >= length) {
 		return TRUE;
 	}
@@ -463,7 +463,7 @@ bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr
 
 bool_t hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *length, uint64_t timeout)
 {
-	int ret = recv(sock->sock, data, *length, 0);
+	ssize_t ret = recv(sock->sock, data, *length, 0);
 	if (ret > 0) {
 		*length = ret;
 		return TRUE;
@@ -504,7 +504,7 @@ bool_t hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_a
 	memset(&sock_addr, 0, sizeof(sock_addr));
 	socklen_t sockaddr_size = sizeof(sock_addr);
 
-	int ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)&sock_addr, &sockaddr_size);
+	ssize_t ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)&sock_addr, &sockaddr_size);
 	if (ret > 0) {
 		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
 		*remote_port = ntohs(sock_addr.sin_port);

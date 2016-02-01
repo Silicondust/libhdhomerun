@@ -98,15 +98,15 @@ uint64_t getcurrenttime(void)
 
 void msleep_approx(uint64_t ms)
 {
-	unsigned int delay_s = ms / 1000;
+	uint64_t delay_s = ms / 1000;
 	if (delay_s > 0) {
-		sleep(delay_s);
+		sleep((unsigned int)delay_s);
 		ms -= delay_s * 1000;
 	}
 
-	unsigned int delay_us = ms * 1000;
+	uint64_t delay_us = ms * 1000;
 	if (delay_us > 0) {
-		usleep(delay_us);
+		usleep((useconds_t)delay_us);
 	}
 }
 

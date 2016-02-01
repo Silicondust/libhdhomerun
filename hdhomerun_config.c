@@ -1,7 +1,7 @@
 /*
  * hdhomerun_config.c
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-206 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -560,7 +560,7 @@ static int main_cmd(int argc, char *argv[])
 		if (argc < 2) {
 			return help();
 		}
-		uint32_t lockkey = strtoul(argv[0], NULL, 0);
+		uint32_t lockkey = (uint32_t)strtoul(argv[0], NULL, 0);
 		hdhomerun_device_tuner_lockkey_use_value(hd, lockkey);
 
 		cmd = argv[1];
