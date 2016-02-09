@@ -236,7 +236,7 @@ static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 
 		if (length == VIDEO_RTP_DATA_PACKET_SIZE) {
 			hdhomerun_video_parse_rtp(vs, pkt);
-			length = (int)(pkt->end - pkt->pos);
+			length = pkt->end - pkt->pos;
 		}
 
 		if (length != VIDEO_DATA_PACKET_SIZE) {

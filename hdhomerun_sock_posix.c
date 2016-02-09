@@ -347,7 +347,7 @@ bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size
 {
 	const uint8_t *ptr = (const uint8_t *)data;
 	ssize_t ret = send(sock->sock, ptr, length, MSG_NOSIGNAL);
-	if (ret >= length) {
+	if (ret >= (ssize_t)length) {
 		return TRUE;
 	}
 
@@ -377,7 +377,7 @@ bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size
 		}
 
 		ret = send(sock->sock, ptr, length, MSG_NOSIGNAL);
-		if (ret >= length) {
+		if (ret >= (ssize_t)length) {
 			return TRUE;
 		}
 
@@ -409,7 +409,7 @@ bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr
 
 	const uint8_t *ptr = (const uint8_t *)data;
 	ssize_t ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
-	if (ret >= length) {
+	if (ret >= (ssize_t)length) {
 		return TRUE;
 	}
 
@@ -439,7 +439,7 @@ bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr
 		}
 
 		ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
-		if (ret >= length) {
+		if (ret >= (ssize_t)length) {
 			return TRUE;
 		}
 
