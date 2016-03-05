@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Silicondust/libhdhomerun.svg?branch=master)](https://travis-ci.org/Silicondust/libhdhomerun)
+[![Build Status](https://travis-ci.org/zcsizmadia/libhdhomerun.svg?branch=master)](https://travis-ci.org/zcsizmadia/libhdhomerun)
 
 Copyright © 2005-2016 Silicondust USA Inc. <www.silicondust.com>.
 
