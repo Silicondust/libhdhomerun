@@ -1,0 +1,18 @@
+language: c
+
+os:
+  - linux
+  - osx
+
+compiler:
+  - clang
+  - gcc
+
+#before_install:
+#  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew update --all; fi
+#
+#install:
+#  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install yasm; fi
+
+script:
+  - make
