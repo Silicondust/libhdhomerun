@@ -1,4 +1,6 @@
-Copyright © 2005-2016 Silicondust USA Inc. <www.silicondust.com>.
+[![Build Status](https://travis-ci.org/zcsizmadia/libhdhomerun.svg?branch=master)](https://travis-ci.org/zcsizmadia/libhdhomerun)
+
+Copyright Â© 2005-2016 Silicondust USA Inc. <www.silicondust.com>.
 
 This library implements the libhdhomerun protocol for use with Silicondust HDHomeRun TV tuners.
 
