@@ -12,3 +12,4 @@ script:
   #- make
   - cmake .
   - cmake --build .
+  - ./hdhomerun_config
