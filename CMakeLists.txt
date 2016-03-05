@@ -39,8 +39,11 @@ endif()
 
 if(WIN32)
   list(APPEND DEPLIBS ws2_32 iphlpapi)
-elsif (${UNIX})
-  list(APPEND DEPLIBS pthread rt)
+elsif()
+  list(APPEND DEPLIBS pthread)
+  if (UNIX)
+    list(APPEND DEPLIBS rt)
+  endif()  
 endif()
 
 if(MSVC)
