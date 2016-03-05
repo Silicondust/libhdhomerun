@@ -41,7 +41,7 @@ endif()
 
 if(WIN32)
   list(APPEND DEPLIBS ws2_32 iphlpapi)
-elsif()
+else()
   list(APPEND DEPLIBS pthread)
   check_library_exists(rt clock_gettime "" HAS_LIBRT)
   if (HAS_LIBRT)
