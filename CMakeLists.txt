@@ -38,9 +38,8 @@ else()
 endif()
 
 if(WIN32)
-  list(APPEND DEPLIBS ws2_32)
-  list(APPEND DEPLIBS iphlpapi)
-else()
+  list(APPEND DEPLIBS ws2_32 iphlpapi)
+elsif (${UNIX})
   list(APPEND DEPLIBS pthread rt)
 endif()
 
