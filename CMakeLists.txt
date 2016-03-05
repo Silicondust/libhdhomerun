@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8)
 
 project(hdhomerun)
 
+include(CheckLibraryExists)
+
 set(SOURCES 
   hdhomerun_channels.c
   hdhomerun_channelscan.c
@@ -41,7 +43,8 @@ if(WIN32)
   list(APPEND DEPLIBS ws2_32 iphlpapi)
 elsif()
   list(APPEND DEPLIBS pthread)
-  if (UNIX)
+  check_library_exists(rt clock_gettime "" HAS_LIBRT)
+  if (HAS_LIBRT)
     list(APPEND DEPLIBS rt)
   endif()  
 endif()
