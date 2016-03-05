@@ -9,4 +9,6 @@ compiler:
   - gcc
 
 script:
-  - make
+  #- make
+  - cmake .
+  - cmake --build .
