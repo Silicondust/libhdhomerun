@@ -15,7 +15,7 @@ set(SOURCES
   hdhomerun_video.c)
 
 set(HEADERS 
-  ${PROJECT_SOURCE_DIR}/hdhomerun.h
+  hdhomerun.h
   hdhomerun_channels.h
   hdhomerun_channelscan.h
   hdhomerun_control.h
