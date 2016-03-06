@@ -42,11 +42,18 @@ endif()
 if(WIN32)
   list(APPEND DEPLIBS ws2_32 iphlpapi)
 else()
-  list(APPEND DEPLIBS pthread)
-  check_library_exists(rt clock_gettime "" HAS_LIBRT)
-  if (HAS_LIBRT)
+  check_library_exists(pthreads pthread_create HAVE_LIBTHREAD)
+  check_library_exists(socket getaddrinfo "" HAVE_LIBSOCKET)
+  check_library_exists(rt clock_gettime "" HAVE_LIBRT)
+  if (HAVE_LIBTHREADS)
+    list(APPEND DEPLIBS pthreads)
+  endif()
+  if (HAVE_LIBRT)
     list(APPEND DEPLIBS rt)
-  endif()  
+  endif()
+  if (HAVE_LIBSOCKET)
+    list(APPEND DEPLIBS socket)
+  endif()
 endif()
 
 if(MSVC)
@@ -56,6 +63,9 @@ endif()
 
 add_library(hdhomerun SHARED ${SOURCES})
 target_link_libraries(hdhomerun ${DEPLIBS})
+
+add_library(hdhomerun_static STATIC ${SOURCES})
+target_link_libraries(hdhomerun_static ${DEPLIBS})
 
 if(WIN32)
   set_target_properties(hdhomerun PROPERTIES DEFINE_SYMBOL "LIBHDHOMERUN_DLLEXPORT") 
@@ -67,7 +77,7 @@ target_link_libraries(hdhomerun_config hdhomerun)
 include_directories(${PROJECT_SOURCE_DIR})
 
 install(FILES ${HEADERS} DESTINATION include/hdhomerun)
-install(TARGETS hdhomerun hdhomerun_config
+install(TARGETS hdhomerun hdhomerun_static hdhomerun_config
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
