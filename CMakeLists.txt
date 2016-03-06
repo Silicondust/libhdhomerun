@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.4)
 
 project(hdhomerun)
 
@@ -27,22 +27,22 @@ set(HEADERS
   hdhomerun_sock.h
   hdhomerun_types.h
   hdhomerun_os.h
+  hdhomerun_os_posix.h
+  hdhomerun_os_windows.h
   hdhomerun_video.h)
 
 if(WIN32)
   LIST(APPEND SOURCES hdhomerun_os_windows.c)
   LIST(APPEND SOURCES hdhomerun_sock_windows.c)
-  LIST(APPEND HEADERS hdhomerun_os_windows.h)
 else()
   LIST(APPEND SOURCES hdhomerun_os_posix.c)
   LIST(APPEND SOURCES hdhomerun_sock_posix.c)
-  LIST(APPEND HEADERS hdhomerun_os_posix.h)
 endif()
 
 if(WIN32)
   list(APPEND DEPLIBS ws2_32 iphlpapi)
 else()
-  check_library_exists(pthreads pthread_create HAVE_LIBTHREAD)
+  check_library_exists(pthreads pthread_create "" HAVE_LIBTHREAD)
   check_library_exists(socket getaddrinfo "" HAVE_LIBSOCKET)
   check_library_exists(rt clock_gettime "" HAVE_LIBRT)
   if (HAVE_LIBTHREADS)
@@ -54,11 +54,6 @@ else()
   if (HAVE_LIBSOCKET)
     list(APPEND DEPLIBS socket)
   endif()
-endif()
-
-if(MSVC)
-  set_source_files_properties(${SOURCES} PROPERTIES LANGUAGE "CXX")
-  add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_WINSOCK_DEPRECATED_NO_WARNINGS)
 endif()
 
 add_library(hdhomerun SHARED ${SOURCES})
