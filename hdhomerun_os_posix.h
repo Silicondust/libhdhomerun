@@ -30,7 +30,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <sys/timeb.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -42,6 +41,7 @@ typedef uint8_t bool_t;
 typedef void (*sig_t)(int);
 
 typedef struct {
+	volatile bool_t signaled;
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 } thread_cond_t;

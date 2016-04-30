@@ -126,6 +126,7 @@ void msleep_minimum(uint64_t ms)
 
 void thread_cond_init(thread_cond_t *cond)
 {
+	cond->signaled = FALSE;
 	pthread_mutex_init(&cond->lock, NULL);
 	pthread_cond_init(&cond->cond, NULL);
 }
@@ -137,28 +138,41 @@ void thread_cond_dispose(thread_cond_t *cond)
 void thread_cond_signal(thread_cond_t *cond)
 {
 	pthread_mutex_lock(&cond->lock);
+
+	cond->signaled = TRUE;
 	pthread_cond_signal(&cond->cond);
+
 	pthread_mutex_unlock(&cond->lock);
 }
 
 void thread_cond_wait(thread_cond_t *cond)
 {
 	pthread_mutex_lock(&cond->lock);
-	pthread_cond_wait(&cond->cond, &cond->lock);
+
+	if (!cond->signaled) {
+		pthread_cond_wait(&cond->cond, &cond->lock);
+	}
+
+	cond->signaled = FALSE;
 	pthread_mutex_unlock(&cond->lock);
 }
 
 void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 {
-	struct timespec ts;
-	clock_realtime_timespec(&ts);
-
-	uint64_t tv_nsec = (uint64_t)ts.tv_nsec + (max_wait_time * 1000000);
-	ts.tv_nsec = (long)(tv_nsec % 1000000000);
-	ts.tv_sec += (time_t)(tv_nsec / 1000000000);
-
 	pthread_mutex_lock(&cond->lock);
-	pthread_cond_timedwait(&cond->cond, &cond->lock, &ts);
+
+	if (!cond->signaled) {
+		struct timespec ts;
+		clock_realtime_timespec(&ts);
+
+		uint64_t tv_nsec = (uint64_t)ts.tv_nsec + (max_wait_time * 1000000);
+		ts.tv_nsec = (long)(tv_nsec % 1000000000);
+		ts.tv_sec += (time_t)(tv_nsec / 1000000000);
+
+		pthread_cond_timedwait(&cond->cond, &cond->lock, &ts);
+	}
+
+	cond->signaled = FALSE;
 	pthread_mutex_unlock(&cond->lock);
 }
 

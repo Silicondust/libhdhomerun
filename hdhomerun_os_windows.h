@@ -44,7 +44,6 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/types.h>
-#include <sys/timeb.h>
 
 #ifdef LIBHDHOMERUN_DLLEXPORT
 #define LIBHDHOMERUN_API __declspec(dllexport)
