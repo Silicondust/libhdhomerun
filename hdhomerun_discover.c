@@ -20,7 +20,7 @@
 
 #include "hdhomerun.h"
 
-#define HDHOMERUN_DISOCVER_MAX_SOCK_COUNT 16
+#define HDHOMERUN_DISCOVER_MAX_SOCK_COUNT 16
 
 struct hdhomerun_discover_sock_t {
 	struct hdhomerun_sock_t *sock;
@@ -30,7 +30,7 @@ struct hdhomerun_discover_sock_t {
 };
 
 struct hdhomerun_discover_t {
-	struct hdhomerun_discover_sock_t socks[HDHOMERUN_DISOCVER_MAX_SOCK_COUNT];
+	struct hdhomerun_discover_sock_t socks[HDHOMERUN_DISCOVER_MAX_SOCK_COUNT];
 	unsigned int sock_count;
 	struct hdhomerun_pkt_t tx_pkt;
 	struct hdhomerun_pkt_t rx_pkt;
@@ -49,7 +49,7 @@ static bool_t hdhomerun_discover_sock_add(struct hdhomerun_discover_t *ds, uint3
 		}
 	}
 
-	if (ds->sock_count >= HDHOMERUN_DISOCVER_MAX_SOCK_COUNT) {
+	if (ds->sock_count >= HDHOMERUN_DISCOVER_MAX_SOCK_COUNT) {
 		return FALSE;
 	}
 
@@ -115,15 +115,15 @@ static void hdhomerun_discover_sock_detect(struct hdhomerun_discover_t *ds)
 		dss->detected = FALSE;
 	}
 
-	struct hdhomerun_local_ip_info_t ip_info_list[HDHOMERUN_DISOCVER_MAX_SOCK_COUNT];
-	int count = hdhomerun_local_ip_info(ip_info_list, HDHOMERUN_DISOCVER_MAX_SOCK_COUNT);
+	struct hdhomerun_local_ip_info_t ip_info_list[HDHOMERUN_DISCOVER_MAX_SOCK_COUNT];
+	int count = hdhomerun_local_ip_info(ip_info_list, HDHOMERUN_DISCOVER_MAX_SOCK_COUNT);
 	if (count < 0) {
 		hdhomerun_debug_printf(ds->dbg, "discover: hdhomerun_local_ip_info returned error\n");
 		count = 0;
 	}
-	if (count > HDHOMERUN_DISOCVER_MAX_SOCK_COUNT) {
+	if (count > HDHOMERUN_DISCOVER_MAX_SOCK_COUNT) {
 		hdhomerun_debug_printf(ds->dbg, "discover: too many local IP addresses\n");
-		count = HDHOMERUN_DISOCVER_MAX_SOCK_COUNT;
+		count = HDHOMERUN_DISCOVER_MAX_SOCK_COUNT;
 	}
 
 	int index;
