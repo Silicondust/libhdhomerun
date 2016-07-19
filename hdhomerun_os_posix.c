@@ -124,6 +124,10 @@ void msleep_minimum(uint64_t ms)
 	}
 }
 
+void pthread_mutex_dispose(pthread_mutex_t *mutex)
+{
+}
+
 void thread_cond_init(thread_cond_t *cond)
 {
 	cond->signaled = FALSE;

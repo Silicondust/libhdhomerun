@@ -100,6 +100,11 @@ void pthread_mutex_init(pthread_mutex_t *mutex, void *attr)
 	*mutex = CreateMutex(NULL, FALSE, NULL);
 }
 
+void pthread_mutex_dispose(pthread_mutex_t *mutex)
+{
+	CloseHandle(*mutex);
+}
+
 void pthread_mutex_lock(pthread_mutex_t *mutex)
 {
 	WaitForSingleObject(*mutex, INFINITE);

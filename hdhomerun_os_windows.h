@@ -86,6 +86,7 @@ extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 extern LIBHDHOMERUN_API int pthread_create(pthread_t *tid, void *attr, LPTHREAD_START_ROUTINE start, void *arg);
 extern LIBHDHOMERUN_API int pthread_join(pthread_t tid, void **value_ptr);
 extern LIBHDHOMERUN_API void pthread_mutex_init(pthread_mutex_t *mutex, void *attr);
+extern LIBHDHOMERUN_API void pthread_mutex_dispose(pthread_mutex_t *mutex);
 extern LIBHDHOMERUN_API void pthread_mutex_lock(pthread_mutex_t *mutex);
 extern LIBHDHOMERUN_API void pthread_mutex_unlock(pthread_mutex_t *mutex);
 

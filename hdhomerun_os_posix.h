@@ -59,6 +59,8 @@ extern LIBHDHOMERUN_API uint64_t getcurrenttime(void);
 extern LIBHDHOMERUN_API void msleep_approx(uint64_t ms);
 extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 
+extern LIBHDHOMERUN_API void pthread_mutex_dispose(pthread_mutex_t *mutex);
+
 extern LIBHDHOMERUN_API void thread_cond_init(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_dispose(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_signal(thread_cond_t *cond);

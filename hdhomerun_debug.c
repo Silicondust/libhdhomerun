@@ -111,6 +111,9 @@ void hdhomerun_debug_destroy(struct hdhomerun_debug_t *dbg)
 		hdhomerun_sock_destroy(dbg->sock);
 	}
 
+	pthread_mutex_dispose(&dbg->print_lock);
+	pthread_mutex_dispose(&dbg->queue_lock);
+	pthread_mutex_dispose(&dbg->send_lock);
 	free(dbg);
 }
 

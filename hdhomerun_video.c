@@ -105,9 +105,13 @@ error:
 	if (vs->sock) {
 		hdhomerun_sock_destroy(vs->sock);
 	}
+
 	if (vs->buffer) {
 		free(vs->buffer);
 	}
+
+	pthread_mutex_dispose(&vs->lock);
+
 	free(vs);
 	return NULL;
 }
@@ -118,6 +122,7 @@ void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 	pthread_join(vs->thread, NULL);
 
 	hdhomerun_sock_destroy(vs->sock);
+	pthread_mutex_dispose(&vs->lock);
 	free(vs->buffer);
 
 	free(vs);
