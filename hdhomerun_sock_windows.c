@@ -27,7 +27,12 @@ struct hdhomerun_sock_t {
 	long events_selected;
 };
 
-#if !defined(_WINRT)
+#if defined(_WINRT)
+int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
+{
+	return 0;
+}
+#else
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
 	PIP_ADAPTER_INFO AdapterInfo;
