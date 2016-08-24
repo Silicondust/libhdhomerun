@@ -71,12 +71,13 @@ void hdhomerun_device_selector_add_device(struct hdhomerun_device_selector_t *hd
 		}
 	}
 
-	hds->hd_list = (struct hdhomerun_device_t **)realloc(hds->hd_list, (hds->hd_count + 1) * sizeof(struct hdhomerun_device_selector_t *));
-	if (!hds->hd_list) {
+	struct hdhomerun_device_t **hd_list = (struct hdhomerun_device_t **)realloc(hds->hd_list, (hds->hd_count + 1) * sizeof(struct hdhomerun_device_selector_t *));
+	if (!hd_list) {
 		hdhomerun_debug_printf(hds->dbg, "hdhomerun_device_selector_add_device: failed to allocate device list\n");
 		return;
 	}
 
+	hds->hd_list = hd_list;
 	hds->hd_list[hds->hd_count++] = hd;
 }
 
@@ -322,7 +323,7 @@ static bool_t hdhomerun_device_selector_choose_test(struct hdhomerun_device_sele
 	/*
 	 * Attempt to aquire lock.
 	 */
-	char *error;
+	char *error = NULL;
 	int ret = hdhomerun_device_tuner_lockkey_request(test_hd, &error);
 	if (ret > 0) {
 		hdhomerun_debug_printf(hds->dbg, "hdhomerun_device_selector_choose_test: device %s chosen\n", name);
