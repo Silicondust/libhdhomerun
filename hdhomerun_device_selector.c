@@ -125,25 +125,19 @@ struct hdhomerun_device_t *hdhomerun_device_selector_find_device(struct hdhomeru
 
 static int hdhomerun_device_selector_load_from_str_discover(struct hdhomerun_device_selector_t *hds, uint32_t target_ip, uint32_t device_id)
 {
-	struct hdhomerun_discover_device_t result_list[64];
-	int discover_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_TUNER, device_id, result_list, 64);
+	struct hdhomerun_discover_device_t result;
+	int discover_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_TUNER, device_id, &result, 1);
 
 	int count = 0;
-	int result_index;
-	struct hdhomerun_discover_device_t *result = result_list;
-	for (result_index = 0; result_index < discover_count; result_index++) {
-		unsigned int tuner_index;
-		for (tuner_index = 0; tuner_index < result->tuner_count; tuner_index++) {
-			struct hdhomerun_device_t *hd = hdhomerun_device_create(result->device_id, result->ip_addr, tuner_index, hds->dbg);
-			if (!hd) {
-				continue;
-			}
-
-			hdhomerun_device_selector_add_device(hds, hd);
-			count++;
+	unsigned int tuner_index;
+	for (tuner_index = 0; tuner_index < result.tuner_count; tuner_index++) {
+		struct hdhomerun_device_t *hd = hdhomerun_device_create(result.device_id, result.ip_addr, tuner_index, hds->dbg);
+		if (!hd) {
+			continue;
 		}
 
-		result++;
+		hdhomerun_device_selector_add_device(hds, hd);
+		count++;
 	}
 
 	return count;
