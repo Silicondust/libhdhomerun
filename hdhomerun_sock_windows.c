@@ -28,11 +28,57 @@ struct hdhomerun_sock_t {
 };
 
 #if defined(_WINRT)
+static const char *hdhomerun_local_ip_info_str = NULL;
+
+/*
+ * String format: ip address '/' subnet mask bits <space> ...
+ * Example: "192.168.0.100/24 169.254.0.100/16"
+ */
+void hdhomerun_local_ip_info_set_str(const char *ip_info_str)
+{
+	if (hdhomerun_local_ip_info_str) {
+		free(hdhomerun_local_ip_info_str);
+	}
+
+	hdhomerun_local_ip_info_str = strdup(ip_info_str);
+}
+
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
-	return 0;
+	const char *ptr = hdhomerun_local_ip_info_str;
+	if (!ptr) {
+		return 0;
+	}
+
+	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
+	int count = 0;
+
+	while (count < max_count) {
+		unsigned int a[4];
+		unsigned int mask_bitcount;
+		if (sscanf(ptr, "%u.%u.%u.%u/%u", &a[0], &a[1], &a[2], &a[3], &mask_bitcount) != 5) {
+			break;
+		}
+
+		ip_info->ip_addr = (uint32_t)((a[0] << 24) | (a[1] << 16) | (a[2] << 8) | (a[3] << 0));
+		ip_info->subnet_mask = 0xFFFFFFFF << (32 - mask_bitcount);
+		ip_info++;
+
+		count++;
+
+		ptr = strchr(ptr, ' ');
+		if (!ptr) {
+			break;
+		}
+
+		ptr++;
+	}
+
+	return count;
 }
-#else
+#endif
+
+#if !defined(_WINRT)
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
 	PIP_ADAPTER_INFO AdapterInfo;

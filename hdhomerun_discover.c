@@ -205,6 +205,9 @@ static bool_t hdhomerun_discover_send_target_ip(struct hdhomerun_discover_t *ds,
 	unsigned int i;
 	for (i = 1; i < ds->sock_count; i++) {
 		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
+		if (dss->subnet_mask == 0) {
+			continue;
+		}
 		if ((target_ip & dss->subnet_mask) != (dss->local_ip & dss->subnet_mask)) {
 			continue;
 		}

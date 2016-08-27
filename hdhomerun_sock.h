@@ -27,6 +27,7 @@ struct hdhomerun_local_ip_info_t {
 };
 
 extern LIBHDHOMERUN_API int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count);
+extern LIBHDHOMERUN_API void hdhomerun_local_ip_info_set_str(const char *ip_info_str); /* WinRT only */
 
 struct hdhomerun_sock_t;
 
