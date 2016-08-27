@@ -1145,6 +1145,8 @@ int hdhomerun_device_stream_start(struct hdhomerun_device_t *hd)
 		return -1;
 	}
 
+	hdhomerun_video_set_keepalive(hd->vs, 0, 0, 0);
+
 	/* Set target. */
 	if (hd->multicast_ip != 0) {
 		int ret = hdhomerun_video_join_multicast_group(hd->vs, hd->multicast_ip, 0);
@@ -1159,6 +1161,9 @@ int hdhomerun_device_stream_start(struct hdhomerun_device_t *hd)
 		if (ret <= 0) {
 			return ret;
 		}
+
+		uint32_t remote_ip = hdhomerun_control_get_device_ip(hd->cs);
+		hdhomerun_video_set_keepalive(hd->vs, remote_ip, 5004, hd->lockkey);
 	}
 
 	/* Flush video buffer. */

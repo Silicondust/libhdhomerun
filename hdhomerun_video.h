@@ -52,6 +52,11 @@ extern LIBHDHOMERUN_API struct hdhomerun_video_sock_t *hdhomerun_video_create(ui
 extern LIBHDHOMERUN_API void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs);
 
 /*
+ * Configure to send a keepalive packet every second.
+ */
+extern LIBHDHOMERUN_API void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t remote_addr, uint32_t remote_port, uint32_t lockkey);
+
+/*
  * Get the port the socket is listening on.
  *
  * Returns 16-bit port with native endianness, or 0 on error.

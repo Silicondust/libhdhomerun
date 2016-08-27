@@ -25,6 +25,11 @@ struct hdhomerun_video_sock_t {
 	struct hdhomerun_debug_t *dbg;
 	struct hdhomerun_sock_t *sock;
 
+	uint32_t keepalive_lockkey;
+	uint32_t keepalive_addr;
+	uint16_t keepalive_port;
+	volatile bool_t keepalive_start;
+
 	volatile size_t head;
 	volatile size_t tail;
 	uint8_t *buffer;
@@ -128,6 +133,21 @@ void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 	free(vs);
 }
 
+void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t remote_addr, uint32_t remote_port, uint32_t lockkey)
+{
+	pthread_mutex_lock(&vs->lock);
+
+	vs->keepalive_addr = remote_addr;
+	vs->keepalive_port = remote_port;
+	vs->keepalive_lockkey = lockkey;
+
+	if ((remote_addr != 0) && (remote_port != 0)) {
+		vs->keepalive_start = TRUE;
+	}
+
+	pthread_mutex_unlock(&vs->lock);
+}
+
 struct hdhomerun_sock_t *hdhomerun_video_get_sock(struct hdhomerun_video_sock_t *vs)
 {
 	return vs->sock;
@@ -222,26 +242,51 @@ static void hdhomerun_video_parse_rtp(struct hdhomerun_video_sock_t *vs, struct 
 	}
 }
 
+static void hdhomerun_video_thread_send_keepalive(struct hdhomerun_video_sock_t *vs)
+{
+	pthread_mutex_lock(&vs->lock);
+	uint32_t keepalive_lockkey = vs->keepalive_lockkey;
+	uint32_t keepalive_addr = vs->keepalive_addr;
+	uint16_t keepalive_port = vs->keepalive_port;
+	vs->keepalive_start = FALSE;
+	pthread_mutex_unlock(&vs->lock);
+
+	if ((keepalive_addr == 0) || (keepalive_port == 0)) {
+		return;
+	}
+
+	struct hdhomerun_pkt_t pkt;
+	hdhomerun_pkt_reset(&pkt);
+	hdhomerun_pkt_write_u32(&pkt, keepalive_lockkey);
+	hdhomerun_sock_sendto(vs->sock, keepalive_addr, keepalive_port, pkt.start, pkt.end - pkt.start, 25);
+}
+
 static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 {
 	struct hdhomerun_video_sock_t *vs = (struct hdhomerun_video_sock_t *)arg;
-	struct hdhomerun_pkt_t pkt_inst;
+	uint64_t send_time = getcurrenttime();
 
 	while (!vs->terminate) {
-		struct hdhomerun_pkt_t *pkt = &pkt_inst;
-		hdhomerun_pkt_reset(pkt);
+		uint64_t current_time = getcurrenttime();
+		if (vs->keepalive_start || (current_time >= send_time)) {
+			hdhomerun_video_thread_send_keepalive(vs);
+			send_time = current_time + 1000;
+		}
 
 		/* Receive. */
+		struct hdhomerun_pkt_t pkt;
+		hdhomerun_pkt_reset(&pkt);
+
 		size_t length = VIDEO_RTP_DATA_PACKET_SIZE;
-		if (!hdhomerun_sock_recv(vs->sock, pkt->end, &length, 25)) {
+		if (!hdhomerun_sock_recv(vs->sock, pkt.end, &length, 25)) {
 			continue;
 		}
 
-		pkt->end += length;
+		pkt.end += length;
 
 		if (length == VIDEO_RTP_DATA_PACKET_SIZE) {
-			hdhomerun_video_parse_rtp(vs, pkt);
-			length = pkt->end - pkt->pos;
+			hdhomerun_video_parse_rtp(vs, &pkt);
+			length = pkt.end - pkt.pos;
 		}
 
 		if (length != VIDEO_DATA_PACKET_SIZE) {
@@ -254,7 +299,7 @@ static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 		/* Store in ring buffer. */
 		size_t head = vs->head;
 		uint8_t *ptr = vs->buffer + head;
-		memcpy(ptr, pkt->pos, length);
+		memcpy(ptr, pkt.pos, length);
 
 		/* Stats. */
 		vs->packet_count++;
