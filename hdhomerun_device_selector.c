@@ -127,6 +127,9 @@ static int hdhomerun_device_selector_load_from_str_discover(struct hdhomerun_dev
 {
 	struct hdhomerun_discover_device_t result;
 	int discover_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_TUNER, device_id, &result, 1);
+	if (discover_count != 1) {
+		return 0;
+	}
 
 	int count = 0;
 	unsigned int tuner_index;
