@@ -28,7 +28,7 @@ struct hdhomerun_sock_t {
 };
 
 #if defined(_WINRT)
-static const char *hdhomerun_local_ip_info_str = NULL;
+static char *hdhomerun_local_ip_info_str = NULL;
 
 /*
  * String format: ip address '/' subnet mask bits <space> ...
