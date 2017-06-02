@@ -71,7 +71,7 @@ void hdhomerun_device_selector_add_device(struct hdhomerun_device_selector_t *hd
 		}
 	}
 
-	struct hdhomerun_device_t **hd_list = (struct hdhomerun_device_t **)realloc(hds->hd_list, (hds->hd_count + 1) * sizeof(struct hdhomerun_device_selector_t *));
+	struct hdhomerun_device_t **hd_list = (struct hdhomerun_device_t **)realloc(hds->hd_list, (hds->hd_count + 1) * sizeof(struct hdhomerun_device_t *));
 	if (!hd_list) {
 		hdhomerun_debug_printf(hds->dbg, "hdhomerun_device_selector_add_device: failed to allocate device list\n");
 		return;
