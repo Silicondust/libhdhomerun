@@ -215,7 +215,7 @@ struct hdhomerun_device_t *hdhomerun_device_create_from_str(const char *device_s
 		 */
 		unsigned int port;
 		if (sscanf(device_str, "%u.%u.%u.%u:%u", &a[0], &a[1], &a[2], &a[3], &port) == 5) {
-			return hdhomerun_device_create_multicast(ip_addr, port, dbg);
+			return hdhomerun_device_create_multicast(ip_addr, (uint16_t)port, dbg);
 		}
 
 		/*

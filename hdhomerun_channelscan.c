@@ -152,14 +152,14 @@ static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, str
 
 		unsigned int transport_stream_id;
 		if (sscanf(line, "tsid=0x%x", &transport_stream_id) == 1) {
-			result->transport_stream_id = transport_stream_id;
+			result->transport_stream_id = (uint16_t)transport_stream_id;
 			result->transport_stream_id_detected = true;
 			continue;
 		}
 
 		unsigned int original_network_id;
 		if (sscanf(line, "onid=0x%x", &original_network_id) == 1) {
-			result->original_network_id = original_network_id;
+			result->original_network_id = (uint16_t)original_network_id;
 			result->original_network_id_detected = true;
 			continue;
 		}
@@ -182,9 +182,9 @@ static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, str
 			virtual_minor = 0;
 		}
 
-		program.program_number = program_number;
-		program.virtual_major = virtual_major;
-		program.virtual_minor = virtual_minor;
+		program.program_number = (uint16_t)program_number;
+		program.virtual_major = (uint16_t)virtual_major;
+		program.virtual_minor = (uint16_t)virtual_minor;
 
 		channelscan_extract_name(&program, line);
 
@@ -343,5 +343,5 @@ uint8_t channelscan_get_progress(struct hdhomerun_channelscan_t *scan)
 		}
 	}
 
-	return scan->scanned_channels * 100 / (scan->scanned_channels + channels_remaining);
+	return (uint8_t) (scan->scanned_channels * 100 / (scan->scanned_channels + channels_remaining));
 }

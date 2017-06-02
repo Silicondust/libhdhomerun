@@ -465,7 +465,7 @@ bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *leng
 {
 	ssize_t ret = recv(sock->sock, data, *length, 0);
 	if (ret > 0) {
-		*length = ret;
+		*length = (size_t)ret;
 		return true;
 	}
 
@@ -491,7 +491,7 @@ bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *leng
 
 	ret = recv(sock->sock, data, *length, 0);
 	if (ret > 0) {
-		*length = ret;
+		*length = (size_t)ret;
 		return true;
 	}
 
@@ -508,7 +508,7 @@ bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_add
 	if (ret > 0) {
 		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
 		*remote_port = ntohs(sock_addr.sin_port);
-		*length = ret;
+		*length = (size_t)ret;
 		return true;
 	}
 
@@ -536,7 +536,7 @@ bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_add
 	if (ret > 0) {
 		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
 		*remote_port = ntohs(sock_addr.sin_port);
-		*length = ret;
+		*length = (size_t)ret;
 		return true;
 	}
 

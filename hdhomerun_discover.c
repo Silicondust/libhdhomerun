@@ -149,7 +149,7 @@ static void hdhomerun_discover_sock_detect(struct hdhomerun_discover_t *ds)
 		count++;
 	}
 
-	ds->sock_count = count;
+	ds->sock_count = (unsigned int)count;
 }
 
 static bool hdhomerun_discover_send_internal(struct hdhomerun_discover_t *ds, struct hdhomerun_discover_sock_t *dss, uint32_t target_ip, uint32_t device_type, uint32_t device_id)

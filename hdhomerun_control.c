@@ -259,7 +259,7 @@ static int hdhomerun_control_get_set(struct hdhomerun_control_sock_t *cs, const 
 	/* Request. */
 	hdhomerun_pkt_reset(tx_pkt);
 
-	int name_len = (int)strlen(name) + 1;
+	size_t name_len = strlen(name) + 1;
 	if (tx_pkt->end + 3 + name_len > tx_pkt->limit) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_get_set: request too long\n");
 		return -1;
@@ -269,7 +269,7 @@ static int hdhomerun_control_get_set(struct hdhomerun_control_sock_t *cs, const 
 	hdhomerun_pkt_write_mem(tx_pkt, (const void *)name, name_len);
 
 	if (value) {
-		int value_len = (int)strlen(value) + 1;
+		size_t value_len = strlen(value) + 1;
 		if (tx_pkt->end + 3 + value_len > tx_pkt->limit) {
 			hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_get_set: request too long\n");
 			return -1;
@@ -327,6 +327,9 @@ static int hdhomerun_control_get_set(struct hdhomerun_control_sock_t *cs, const 
 			}
 
 			return 0;
+
+		default:
+			break;
 		}
 
 		rx_pkt->pos = next;

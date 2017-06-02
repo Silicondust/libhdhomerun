@@ -160,7 +160,7 @@ int hdhomerun_device_selector_load_from_str(struct hdhomerun_device_selector_t *
 		 */
 		unsigned int port;
 		if (sscanf(device_str, "%u.%u.%u.%u:%u", &a[0], &a[1], &a[2], &a[3], &port) == 5) {
-			struct hdhomerun_device_t *hd = hdhomerun_device_create_multicast(ip_addr, port, hds->dbg);
+			struct hdhomerun_device_t *hd = hdhomerun_device_create_multicast(ip_addr, (uint16_t)port, hds->dbg);
 			if (!hd) {
 				return 0;
 			}
