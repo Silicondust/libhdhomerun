@@ -42,7 +42,6 @@
 struct hdhomerun_debug_message_t
 {
 	struct hdhomerun_debug_message_t *next;
-	struct hdhomerun_debug_message_t *prev;
 	char buffer[2048];
 };
 
@@ -57,6 +56,7 @@ struct hdhomerun_debug_t
 	pthread_mutex_t queue_lock;
 	pthread_mutex_t send_lock;
 
+	thread_cond_t queue_cond;
 	struct hdhomerun_debug_message_t *queue_head;
 	struct hdhomerun_debug_message_t *queue_tail;
 	uint32_t queue_depth;
@@ -80,6 +80,7 @@ struct hdhomerun_debug_t *hdhomerun_debug_create(void)
 	pthread_mutex_init(&dbg->print_lock, NULL);
 	pthread_mutex_init(&dbg->queue_lock, NULL);
 	pthread_mutex_init(&dbg->send_lock, NULL);
+	thread_cond_init(&dbg->queue_cond);
 
 	if (pthread_create(&dbg->thread, NULL, &hdhomerun_debug_thread_execute, dbg) != 0) {
 		free(dbg);
@@ -111,6 +112,7 @@ void hdhomerun_debug_destroy(struct hdhomerun_debug_t *dbg)
 		hdhomerun_sock_destroy(dbg->sock);
 	}
 
+	thread_cond_dispose(&dbg->queue_cond);
 	pthread_mutex_dispose(&dbg->print_lock);
 	pthread_mutex_dispose(&dbg->queue_lock);
 	pthread_mutex_dispose(&dbg->send_lock);
@@ -205,8 +207,12 @@ void hdhomerun_debug_enable(struct hdhomerun_debug_t *dbg)
 	if (!dbg) {
 		return;
 	}
+	if (dbg->enabled) {
+		return;
+	}
 
 	dbg->enabled = true;
+	thread_cond_signal(&dbg->queue_cond);
 }
 
 void hdhomerun_debug_disable(struct hdhomerun_debug_t *dbg)
@@ -237,7 +243,7 @@ void hdhomerun_debug_flush(struct hdhomerun_debug_t *dbg, uint64_t timeout)
 
 	while (getcurrenttime() < timeout) {
 		pthread_mutex_lock(&dbg->queue_lock);
-		struct hdhomerun_debug_message_t *message = dbg->queue_tail;
+		struct hdhomerun_debug_message_t *message = dbg->queue_head;
 		pthread_mutex_unlock(&dbg->queue_lock);
 
 		if (!message) {
@@ -259,9 +265,6 @@ void hdhomerun_debug_printf(struct hdhomerun_debug_t *dbg, const char *fmt, ...)
 void hdhomerun_debug_vprintf(struct hdhomerun_debug_t *dbg, const char *fmt, va_list args)
 {
 	if (!dbg) {
-		return;
-	}
-	if (!dbg->enabled) {
 		return;
 	}
 
@@ -313,17 +316,21 @@ void hdhomerun_debug_vprintf(struct hdhomerun_debug_t *dbg, const char *fmt, va_
 	 */
 	pthread_mutex_lock(&dbg->queue_lock);
 
-	message->prev = NULL;
-	message->next = dbg->queue_head;
-	dbg->queue_head = message;
-	if (message->next) {
-		message->next->prev = message;
+	message->next = NULL;
+	if (dbg->queue_tail) {
+		dbg->queue_tail->next = message;
+		dbg->queue_tail = message;
 	} else {
+		dbg->queue_head = message;
 		dbg->queue_tail = message;
 	}
 	dbg->queue_depth++;
 
 	pthread_mutex_unlock(&dbg->queue_lock);
+
+	if (dbg->enabled) {
+		thread_cond_signal(&dbg->queue_cond);
+	}
 }
 
 /* Send lock held by caller */
@@ -403,12 +410,10 @@ static void hdhomerun_debug_pop_and_free_message(struct hdhomerun_debug_t *dbg)
 {
 	pthread_mutex_lock(&dbg->queue_lock);
 
-	struct hdhomerun_debug_message_t *message = dbg->queue_tail;
-	dbg->queue_tail = message->prev;
-	if (message->prev) {
-		message->prev->next = NULL;
-	} else {
-		dbg->queue_head = NULL;
+	struct hdhomerun_debug_message_t *message = dbg->queue_head;
+	dbg->queue_head = message->next;
+	if (!dbg->queue_head) {
+		dbg->queue_tail = NULL;
 	}
 	dbg->queue_depth--;
 
@@ -422,14 +427,13 @@ static THREAD_FUNC_PREFIX hdhomerun_debug_thread_execute(void *arg)
 	struct hdhomerun_debug_t *dbg = (struct hdhomerun_debug_t *)arg;
 
 	while (!dbg->terminate) {
-
 		pthread_mutex_lock(&dbg->queue_lock);
-		struct hdhomerun_debug_message_t *message = dbg->queue_tail;
+		struct hdhomerun_debug_message_t *message = dbg->queue_head;
 		uint32_t queue_depth = dbg->queue_depth;
 		pthread_mutex_unlock(&dbg->queue_lock);
 
 		if (!message) {
-			msleep_approx(250);
+			thread_cond_wait(&dbg->queue_cond);
 			continue;
 		}
 
@@ -438,8 +442,13 @@ static THREAD_FUNC_PREFIX hdhomerun_debug_thread_execute(void *arg)
 			continue;
 		}
 
+		if (!dbg->enabled) {
+			thread_cond_wait(&dbg->queue_cond);
+			continue;
+		}
+
 		if (!hdhomerun_debug_output_message(dbg, message)) {
-			msleep_approx(250);
+			msleep_approx(1000);
 			continue;
 		}
 
