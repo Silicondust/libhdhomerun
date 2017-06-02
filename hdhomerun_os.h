@@ -23,11 +23,3 @@
 #else
 #include "hdhomerun_os_posix.h"
 #endif
-
-#if !defined(TRUE)
-#define TRUE 1
-#endif
-
-#if !defined(FALSE)
-#define FALSE 0
-#endif

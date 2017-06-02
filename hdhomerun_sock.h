@@ -46,17 +46,17 @@ extern LIBHDHOMERUN_API uint16_t hdhomerun_sock_getsockname_port(struct hdhomeru
 extern LIBHDHOMERUN_API uint32_t hdhomerun_sock_getpeername_addr(struct hdhomerun_sock_t *sock);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_sock_getaddrinfo_addr(struct hdhomerun_sock_t *sock, const char *name);
 
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip);
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip);
 
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uint16_t local_port, bool_t allow_reuse);
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, uint64_t timeout);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uint16_t local_port, bool allow_reuse);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, uint64_t timeout);
 
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t length, uint64_t timeout);
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, const void *data, size_t length, uint64_t timeout);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t length, uint64_t timeout);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, const void *data, size_t length, uint64_t timeout);
 
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *length, uint64_t timeout);
-extern LIBHDHOMERUN_API bool_t hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_addr, uint16_t *remote_port, void *data, size_t *length, uint64_t timeout);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *length, uint64_t timeout);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_addr, uint16_t *remote_port, void *data, size_t *length, uint64_t timeout);
 
 #ifdef __cplusplus
 }

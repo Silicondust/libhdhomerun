@@ -50,23 +50,23 @@ static void extract_appname(const char *argv0)
 	appname = argv0;
 }
 
-static bool_t contains(const char *arg, const char *cmpstr)
+static bool contains(const char *arg, const char *cmpstr)
 {
 	if (strcmp(arg, cmpstr) == 0) {
-		return TRUE;
+		return true;
 	}
 
 	if (*arg++ != '-') {
-		return FALSE;
+		return false;
 	}
 	if (*arg++ != '-') {
-		return FALSE;
+		return false;
 	}
 	if (strcmp(arg, cmpstr) == 0) {
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 static uint32_t parse_ip_addr(const char *str)
@@ -180,17 +180,17 @@ static int cmd_set(const char *item, const char *value)
 	return cmd_set_internal(item, value);
 }
 
-static volatile sig_atomic_t sigabort_flag = FALSE;
-static volatile sig_atomic_t siginfo_flag = FALSE;
+static volatile sig_atomic_t sigabort_flag = false;
+static volatile sig_atomic_t siginfo_flag = false;
  
 static void sigabort_handler(int arg)
 {
-	sigabort_flag = TRUE;
+	sigabort_flag = true;
 }
 
 static void siginfo_handler(int arg)
 {
-	siginfo_flag = TRUE;
+	siginfo_flag = true;
 }
 
 static void register_signal_handlers(sig_t sigpipe_handler, sig_t sigint_handler, sig_t siginfo_handler)
@@ -379,7 +379,7 @@ static int cmd_save(const char *tuner_str, const char *filename)
 		if (siginfo_flag) {
 			fprintf(stderr, "\n");
 			cmd_save_print_stats();
-			siginfo_flag = FALSE;
+			siginfo_flag = false;
 		}
 
 		size_t actual_size;

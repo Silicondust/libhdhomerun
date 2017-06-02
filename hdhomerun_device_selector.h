@@ -28,7 +28,7 @@ extern "C" {
  * The dbg parameter may be null.
  */
 extern LIBHDHOMERUN_API struct hdhomerun_device_selector_t *hdhomerun_device_selector_create(struct hdhomerun_debug_t *dbg);
-extern LIBHDHOMERUN_API void hdhomerun_device_selector_destroy(struct hdhomerun_device_selector_t *hds, bool_t destroy_devices);
+extern LIBHDHOMERUN_API void hdhomerun_device_selector_destroy(struct hdhomerun_device_selector_t *hds, bool destroy_devices);
 
 /*
  * Get the number of devices in the list.

@@ -49,8 +49,8 @@ struct hdhomerun_debug_message_t
 struct hdhomerun_debug_t
 {
 	pthread_t thread;
-	volatile bool_t enabled;
-	volatile bool_t terminate;
+	volatile bool enabled;
+	volatile bool terminate;
 	char *prefix;
 
 	pthread_mutex_t print_lock;
@@ -95,7 +95,7 @@ void hdhomerun_debug_destroy(struct hdhomerun_debug_t *dbg)
 		return;
 	}
 
-	dbg->terminate = TRUE;
+	dbg->terminate = true;
 	pthread_join(dbg->thread, NULL);
 
 	if (dbg->prefix) {
@@ -206,7 +206,7 @@ void hdhomerun_debug_enable(struct hdhomerun_debug_t *dbg)
 		return;
 	}
 
-	dbg->enabled = TRUE;
+	dbg->enabled = true;
 }
 
 void hdhomerun_debug_disable(struct hdhomerun_debug_t *dbg)
@@ -215,13 +215,13 @@ void hdhomerun_debug_disable(struct hdhomerun_debug_t *dbg)
 		return;
 	}
 
-	dbg->enabled = FALSE;
+	dbg->enabled = false;
 }
 
-bool_t hdhomerun_debug_enabled(struct hdhomerun_debug_t *dbg)
+bool hdhomerun_debug_enabled(struct hdhomerun_debug_t *dbg)
 {
 	if (!dbg) {
-		return FALSE;
+		return false;
 	}
 
 	return dbg->enabled;
@@ -327,68 +327,68 @@ void hdhomerun_debug_vprintf(struct hdhomerun_debug_t *dbg, const char *fmt, va_
 }
 
 /* Send lock held by caller */
-static bool_t hdhomerun_debug_output_message_file(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
+static bool hdhomerun_debug_output_message_file(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
 {
 	if (!dbg->file_fp) {
 		uint64_t current_time = getcurrenttime();
 		if (current_time < dbg->connect_delay) {
-			return FALSE;
+			return false;
 		}
 		dbg->connect_delay = current_time + 30*1000;
 
 		dbg->file_fp = fopen(dbg->file_name, "a");
 		if (!dbg->file_fp) {
-			return FALSE;
+			return false;
 		}
 	}
 
 	fprintf(dbg->file_fp, "%s", message->buffer);
 	fflush(dbg->file_fp);
 
-	return TRUE;
+	return true;
 }
 
 /* Send lock held by caller */
-static bool_t hdhomerun_debug_output_message_sock(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
+static bool hdhomerun_debug_output_message_sock(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
 {
 	if (!dbg->sock) {
 		uint64_t current_time = getcurrenttime();
 		if (current_time < dbg->connect_delay) {
-			return FALSE;
+			return false;
 		}
 		dbg->connect_delay = current_time + HDHOMERUN_DEBUG_CONNECT_RETRY_TIME;
 
 		dbg->sock = hdhomerun_sock_create_tcp();
 		if (!dbg->sock) {
-			return FALSE;
+			return false;
 		}
 
 		uint32_t remote_addr = hdhomerun_sock_getaddrinfo_addr(dbg->sock, HDHOMERUN_DEBUG_HOST);
 		if (remote_addr == 0) {
 			hdhomerun_debug_close_internal(dbg);
-			return FALSE;
+			return false;
 		}
 
 		if (!hdhomerun_sock_connect(dbg->sock, remote_addr, HDHOMERUN_DEBUG_PORT, HDHOMERUN_DEBUG_CONNECT_TIMEOUT)) {
 			hdhomerun_debug_close_internal(dbg);
-			return FALSE;
+			return false;
 		}
 	}
 
 	size_t length = strlen(message->buffer);
 	if (!hdhomerun_sock_send(dbg->sock, message->buffer, length, HDHOMERUN_DEBUG_SEND_TIMEOUT)) {
 		hdhomerun_debug_close_internal(dbg);
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-static bool_t hdhomerun_debug_output_message(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
+static bool hdhomerun_debug_output_message(struct hdhomerun_debug_t *dbg, struct hdhomerun_debug_message_t *message)
 {
 	pthread_mutex_lock(&dbg->send_lock);
 
-	bool_t ret;
+	bool ret;
 	if (dbg->file_name) {
 		ret = hdhomerun_debug_output_message_file(dbg, message);
 	} else {

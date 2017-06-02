@@ -165,7 +165,7 @@ static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int protocol)
 	}
 
 	/* Event */
-	sock->event = CreateEvent(NULL, FALSE, FALSE, NULL);
+	sock->event = CreateEvent(NULL, false, false, NULL);
 	if (!sock->event) {
 		hdhomerun_sock_destroy(sock);
 		return NULL;
@@ -289,7 +289,7 @@ uint32_t hdhomerun_sock_getaddrinfo_addr(struct hdhomerun_sock_t *sock, const ch
 	return addr;
 }
 
-bool_t hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
+bool hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
 {
 	struct ip_mreq imr;
 	memset(&imr, 0, sizeof(imr));
@@ -297,13 +297,13 @@ bool_t hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32
 	imr.imr_interface.s_addr  = htonl(local_ip);
 
 	if (setsockopt(sock->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
+bool hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
 {
 	struct ip_mreq imr;
 	memset(&imr, 0, sizeof(imr));
@@ -311,13 +311,13 @@ bool_t hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint3
 	imr.imr_interface.s_addr  = htonl(local_ip);
 
 	if (setsockopt(sock->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uint16_t local_port, bool_t allow_reuse)
+bool hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uint16_t local_port, bool allow_reuse)
 {
 	int sock_opt = allow_reuse;
 	setsockopt(sock->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&sock_opt, sizeof(sock_opt));
@@ -329,29 +329,29 @@ bool_t hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, u
 	sock_addr.sin_port = htons(local_port);
 
 	if (bind(sock->sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) != 0) {
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sock_event_select(struct hdhomerun_sock_t *sock, long events)
+bool hdhomerun_sock_event_select(struct hdhomerun_sock_t *sock, long events)
 {
 	if (sock->events_selected != events) {
 		if (WSAEventSelect(sock->sock, sock->event, events) == SOCKET_ERROR) {
-			return FALSE;
+			return false;
 		}
 		sock->events_selected = events;
 	}
 
 	ResetEvent(sock->event);
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, uint64_t timeout)
+bool hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, uint64_t timeout)
 {
 	if (!hdhomerun_sock_event_select(sock, FD_WRITE | FD_CLOSE)) {
-		return FALSE;
+		return false;
 	}
 
 	struct sockaddr_in sock_addr;
@@ -362,33 +362,33 @@ bool_t hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_add
 
 	if (connect(sock->sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) != 0) {
 		if (WSAGetLastError() != WSAEWOULDBLOCK) {
-			return FALSE;
+			return false;
 		}
 	}
 
-	DWORD wait_ret = WaitForSingleObjectEx(sock->event, (DWORD)timeout, FALSE);
+	DWORD wait_ret = WaitForSingleObjectEx(sock->event, (DWORD)timeout, false);
 	if (wait_ret != WAIT_OBJECT_0) {
-		return FALSE;
+		return false;
 	}
 
 	WSANETWORKEVENTS network_events;
 	if (WSAEnumNetworkEvents(sock->sock, sock->event, &network_events) == SOCKET_ERROR) {
-		return FALSE;
+		return false;
 	}
 	if ((network_events.lNetworkEvents & FD_WRITE) == 0) {
-		return FALSE;
+		return false;
 	}
 	if (network_events.lNetworkEvents & FD_CLOSE) {
-		return FALSE;
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t length, uint64_t timeout)
+bool hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t length, uint64_t timeout)
 {
 	if (!hdhomerun_sock_event_select(sock, FD_WRITE | FD_CLOSE)) {
-		return FALSE;
+		return false;
 	}
 
 	uint64_t stop_time = getcurrenttime() + timeout;
@@ -397,11 +397,11 @@ bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size
 	while (1) {
 		int ret = send(sock->sock, (char *)ptr, (int)length, 0);
 		if (ret >= (int)length) {
-			return TRUE;
+			return true;
 		}
 
 		if ((ret == SOCKET_ERROR) && (WSAGetLastError() != WSAEWOULDBLOCK)) {
-			return FALSE;
+			return false;
 		}
 
 		if (ret > 0) {
@@ -411,19 +411,19 @@ bool_t hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size
 
 		uint64_t current_time = getcurrenttime();
 		if (current_time >= stop_time) {
-			return FALSE;
+			return false;
 		}
 
-		if (WaitForSingleObjectEx(sock->event, (DWORD)(stop_time - current_time), FALSE) != WAIT_OBJECT_0) {
-			return FALSE;
+		if (WaitForSingleObjectEx(sock->event, (DWORD)(stop_time - current_time), false) != WAIT_OBJECT_0) {
+			return false;
 		}
 	}
 }
 
-bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, const void *data, size_t length, uint64_t timeout)
+bool hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, const void *data, size_t length, uint64_t timeout)
 {
 	if (!hdhomerun_sock_event_select(sock, FD_WRITE | FD_CLOSE)) {
-		return FALSE;
+		return false;
 	}
 
 	struct sockaddr_in sock_addr;
@@ -434,64 +434,64 @@ bool_t hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr
 
 	int ret = sendto(sock->sock, (char *)data, (int)length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
 	if (ret >= (int)length) {
-		return TRUE;
+		return true;
 	}
 
 	if (ret >= 0) {
-		return FALSE;
+		return false;
 	}
 	if (WSAGetLastError() != WSAEWOULDBLOCK) {
-		return FALSE;
+		return false;
 	}
 
-	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, FALSE) != WAIT_OBJECT_0) {
-		return FALSE;
+	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, false) != WAIT_OBJECT_0) {
+		return false;
 	}
 
 	ret = sendto(sock->sock, (char *)data, (int)length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
 	if (ret >= (int)length) {
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
-bool_t hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *length, uint64_t timeout)
+bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *length, uint64_t timeout)
 {
 	if (!hdhomerun_sock_event_select(sock, FD_READ | FD_CLOSE)) {
-		return FALSE;
+		return false;
 	}
 
 	int ret = recv(sock->sock, (char *)data, (int)(*length), 0);
 	if (ret > 0) {
 		*length = ret;
-		return TRUE;
+		return true;
 	}
 
 	if (ret == 0) {
-		return FALSE;
+		return false;
 	}
 	if (WSAGetLastError() != WSAEWOULDBLOCK) {
-		return FALSE;
+		return false;
 	}
 
-	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, FALSE) != WAIT_OBJECT_0) {
-		return FALSE;
+	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, false) != WAIT_OBJECT_0) {
+		return false;
 	}
 
 	ret = recv(sock->sock, (char *)data, (int)(*length), 0);
 	if (ret > 0) {
 		*length = ret;
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
-bool_t hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_addr, uint16_t *remote_port, void *data, size_t *length, uint64_t timeout)
+bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_addr, uint16_t *remote_port, void *data, size_t *length, uint64_t timeout)
 {
 	if (!hdhomerun_sock_event_select(sock, FD_READ | FD_CLOSE)) {
-		return FALSE;
+		return false;
 	}
 
 	struct sockaddr_in sock_addr;
@@ -503,18 +503,18 @@ bool_t hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_a
 		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
 		*remote_port = ntohs(sock_addr.sin_port);
 		*length = ret;
-		return TRUE;
+		return true;
 	}
 
 	if (ret == 0) {
-		return FALSE;
+		return false;
 	}
 	if (WSAGetLastError() != WSAEWOULDBLOCK) {
-		return FALSE;
+		return false;
 	}
 
-	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, FALSE) != WAIT_OBJECT_0) {
-		return FALSE;
+	if (WaitForSingleObjectEx(sock->event, (DWORD)timeout, false) != WAIT_OBJECT_0) {
+		return false;
 	}
 
 	ret = recvfrom(sock->sock, (char *)data, (int)(*length), 0, (struct sockaddr *)&sock_addr, &sockaddr_size);
@@ -522,8 +522,8 @@ bool_t hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_a
 		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
 		*remote_port = ntohs(sock_addr.sin_port);
 		*length = ret;
-		return TRUE;
+		return true;
 	}
 
-	return FALSE;
+	return false;
 }

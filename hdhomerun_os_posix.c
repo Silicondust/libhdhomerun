@@ -130,7 +130,7 @@ void pthread_mutex_dispose(pthread_mutex_t *mutex)
 
 void thread_cond_init(thread_cond_t *cond)
 {
-	cond->signaled = FALSE;
+	cond->signaled = false;
 	pthread_mutex_init(&cond->lock, NULL);
 	pthread_cond_init(&cond->cond, NULL);
 }
@@ -143,7 +143,7 @@ void thread_cond_signal(thread_cond_t *cond)
 {
 	pthread_mutex_lock(&cond->lock);
 
-	cond->signaled = TRUE;
+	cond->signaled = true;
 	pthread_cond_signal(&cond->cond);
 
 	pthread_mutex_unlock(&cond->lock);
@@ -157,7 +157,7 @@ void thread_cond_wait(thread_cond_t *cond)
 		pthread_cond_wait(&cond->cond, &cond->lock);
 	}
 
-	cond->signaled = FALSE;
+	cond->signaled = false;
 	pthread_mutex_unlock(&cond->lock);
 }
 
@@ -176,36 +176,36 @@ void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 		pthread_cond_timedwait(&cond->cond, &cond->lock, &ts);
 	}
 
-	cond->signaled = FALSE;
+	cond->signaled = false;
 	pthread_mutex_unlock(&cond->lock);
 }
 
-bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
+bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
 {
 	if (buffer >= end) {
-		return FALSE;
+		return false;
 	}
 
 	int length = vsnprintf(buffer, end - buffer - 1, fmt, ap);
 	if (length < 0) {
 		*buffer = 0;
-		return FALSE;
+		return false;
 	}
 
 	if (buffer + length + 1 > end) {
 		*(end - 1) = 0;
-		return FALSE;
+		return false;
 
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...)
+bool hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	bool_t result = hdhomerun_vsprintf(buffer, end, fmt, ap);
+	bool result = hdhomerun_vsprintf(buffer, end, fmt, ap);
 	va_end(ap);
 	return result;
 }

@@ -97,7 +97,7 @@ int pthread_join(pthread_t tid, void **value_ptr)
 
 void pthread_mutex_init(pthread_mutex_t *mutex, void *attr)
 {
-	*mutex = CreateMutex(NULL, FALSE, NULL);
+	*mutex = CreateMutex(NULL, false, NULL);
 }
 
 void pthread_mutex_dispose(pthread_mutex_t *mutex)
@@ -117,7 +117,7 @@ void pthread_mutex_unlock(pthread_mutex_t *mutex)
 
 void thread_cond_init(thread_cond_t *cond)
 {
-	*cond = CreateEvent(NULL, FALSE, FALSE, NULL);
+	*cond = CreateEvent(NULL, false, false, NULL);
 }
 
 void thread_cond_dispose(thread_cond_t *cond)
@@ -140,32 +140,32 @@ void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 	WaitForSingleObject(*cond, (DWORD)max_wait_time);
 }
 
-bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
+bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
 {
 	if (buffer >= end) {
-		return FALSE;
+		return false;
 	}
 
 	int length = _vsnprintf(buffer, end - buffer - 1, fmt, ap);
 	if (length < 0) {
 		*buffer = 0;
-		return FALSE;
+		return false;
 	}
 
 	if (buffer + length + 1 > end) {
 		*(end - 1) = 0;
-		return FALSE;
+		return false;
 
 	}
 
-	return TRUE;
+	return true;
 }
 
-bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...)
+bool hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	bool_t result = hdhomerun_vsprintf(buffer, end, fmt, ap);
+	bool result = hdhomerun_vsprintf(buffer, end, fmt, ap);
 	va_end(ap);
 	return result;
 }

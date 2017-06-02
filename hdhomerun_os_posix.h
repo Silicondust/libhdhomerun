@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -37,11 +39,10 @@
 #include <netdb.h>
 #include <pthread.h>
 
-typedef uint8_t bool_t;
 typedef void (*sig_t)(int);
 
 typedef struct {
-	volatile bool_t signaled;
+	volatile bool signaled;
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 } thread_cond_t;
@@ -67,8 +68,8 @@ extern LIBHDHOMERUN_API void thread_cond_signal(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_wait(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time);
 
-extern LIBHDHOMERUN_API bool_t hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap);
-extern LIBHDHOMERUN_API bool_t hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...);
+extern LIBHDHOMERUN_API bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap);
+extern LIBHDHOMERUN_API bool hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...);
 
 #ifdef __cplusplus
 }

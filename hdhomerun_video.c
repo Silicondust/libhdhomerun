@@ -28,7 +28,7 @@ struct hdhomerun_video_sock_t {
 	uint32_t keepalive_lockkey;
 	uint32_t keepalive_addr;
 	uint16_t keepalive_port;
-	volatile bool_t keepalive_start;
+	volatile bool keepalive_start;
 
 	volatile size_t head;
 	volatile size_t tail;
@@ -37,7 +37,7 @@ struct hdhomerun_video_sock_t {
 	size_t advance;
 
 	pthread_t thread;
-	volatile bool_t terminate;
+	volatile bool terminate;
 
 	volatile uint32_t packet_count;
 	volatile uint32_t transport_error_count;
@@ -51,7 +51,7 @@ struct hdhomerun_video_sock_t {
 
 static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg);
 
-struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool_t allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg)
+struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg)
 {
 	/* Create object. */
 	struct hdhomerun_video_sock_t *vs = (struct hdhomerun_video_sock_t *)calloc(1, sizeof(struct hdhomerun_video_sock_t));
@@ -123,7 +123,7 @@ error:
 
 void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 {
-	vs->terminate = TRUE;
+	vs->terminate = true;
 	pthread_join(vs->thread, NULL);
 
 	hdhomerun_sock_destroy(vs->sock);
@@ -142,7 +142,7 @@ void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t r
 	vs->keepalive_lockkey = lockkey;
 
 	if ((remote_addr != 0) && (remote_port != 0)) {
-		vs->keepalive_start = TRUE;
+		vs->keepalive_start = true;
 	}
 
 	pthread_mutex_unlock(&vs->lock);
@@ -188,7 +188,7 @@ static void hdhomerun_video_stats_ts_pkt(struct hdhomerun_video_sock_t *vs, uint
 		return;
 	}
 
-	bool_t transport_error = ptr[1] >> 7;
+	bool transport_error = ptr[1] >> 7;
 	if (transport_error) {
 		vs->transport_error_count++;
 		vs->sequence[packet_identifier] = 0xFF;
@@ -248,7 +248,7 @@ static void hdhomerun_video_thread_send_keepalive(struct hdhomerun_video_sock_t 
 	uint32_t keepalive_lockkey = vs->keepalive_lockkey;
 	uint32_t keepalive_addr = vs->keepalive_addr;
 	uint16_t keepalive_port = vs->keepalive_port;
-	vs->keepalive_start = FALSE;
+	vs->keepalive_start = false;
 	pthread_mutex_unlock(&vs->lock);
 
 	if ((keepalive_addr == 0) || (keepalive_port == 0)) {

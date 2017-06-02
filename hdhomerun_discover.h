@@ -26,7 +26,7 @@ struct hdhomerun_discover_device_t {
 	uint32_t device_type;
 	uint32_t device_id;
 	uint8_t tuner_count;
-	bool_t is_legacy;
+	bool is_legacy;
 	char device_auth[25];
 	char base_url[29];
 };
@@ -60,18 +60,18 @@ extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_v2(struct hdhomerun_
  * The device ID contains a self-check sequence that detects common user input errors including
  * single-digit errors and two digit transposition errors.
  *
- * Returns TRUE if valid.
- * Returns FALSE if not valid.
+ * Returns true if valid.
+ * Returns false if not valid.
  */
-extern LIBHDHOMERUN_API bool_t hdhomerun_discover_validate_device_id(uint32_t device_id);
+extern LIBHDHOMERUN_API bool hdhomerun_discover_validate_device_id(uint32_t device_id);
 
 /*
  * Detect if an IP address is multicast.
  *
- * Returns TRUE if multicast.
- * Returns FALSE if zero, unicast, expermental, or broadcast.
+ * Returns true if multicast.
+ * Returns false if zero, unicast, expermental, or broadcast.
  */
-extern LIBHDHOMERUN_API bool_t hdhomerun_discover_is_ip_multicast(uint32_t ip_addr);
+extern LIBHDHOMERUN_API bool hdhomerun_discover_is_ip_multicast(uint32_t ip_addr);
 
 #ifdef __cplusplus
 }

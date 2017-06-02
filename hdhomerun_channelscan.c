@@ -127,10 +127,10 @@ static void channelscan_extract_name(struct hdhomerun_channelscan_program_t *pro
 	program->name[length] = 0;
 }
 
-static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, struct hdhomerun_channelscan_result_t *result, bool_t *pchanged, bool_t *pincomplete)
+static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, struct hdhomerun_channelscan_result_t *result, bool *pchanged, bool *pincomplete)
 {
-	*pchanged = FALSE;
-	*pincomplete = FALSE;
+	*pchanged = false;
+	*pincomplete = false;
 
 	char *streaminfo;
 	int ret = hdhomerun_device_get_tuner_streaminfo(scan->hd, &streaminfo);
@@ -153,14 +153,14 @@ static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, str
 		unsigned int transport_stream_id;
 		if (sscanf(line, "tsid=0x%x", &transport_stream_id) == 1) {
 			result->transport_stream_id = transport_stream_id;
-			result->transport_stream_id_detected = TRUE;
+			result->transport_stream_id_detected = true;
 			continue;
 		}
 
 		unsigned int original_network_id;
 		if (sscanf(line, "onid=0x%x", &original_network_id) == 1) {
 			result->original_network_id = original_network_id;
-			result->original_network_id_detected = TRUE;
+			result->original_network_id_detected = true;
 			continue;
 		}
 
@@ -194,28 +194,28 @@ static int channelscan_detect_programs(struct hdhomerun_channelscan_t *scan, str
 			program.type = HDHOMERUN_CHANNELSCAN_PROGRAM_ENCRYPTED;
 		} else if (strstr(line, "(no data)")) {
 			program.type = HDHOMERUN_CHANNELSCAN_PROGRAM_NODATA;
-			*pincomplete = TRUE;
+			*pincomplete = true;
 		} else {
 			program.type = HDHOMERUN_CHANNELSCAN_PROGRAM_NORMAL;
 			if ((program.virtual_major == 0) || (program.name[0] == 0)) {
-				*pincomplete = TRUE;
+				*pincomplete = true;
 			}
 		}
 
 		if (memcmp(&result->programs[program_count], &program, sizeof(program)) != 0) {
 			memcpy(&result->programs[program_count], &program, sizeof(program));
-			*pchanged = TRUE;
+			*pchanged = true;
 		}
 
 		program_count++;
 	}
 
 	if (program_count == 0) {
-		*pincomplete = TRUE;
+		*pincomplete = true;
 	}
 	if (result->program_count != program_count) {
 		result->program_count = program_count;
-		*pchanged = TRUE;
+		*pchanged = true;
 	}
 
 	return 1;
@@ -282,7 +282,7 @@ int channelscan_detect(struct hdhomerun_channelscan_t *scan, struct hdhomerun_ch
 	uint64_t complete_time = getcurrenttime() + 1000;
 
 	while (1) {
-		bool_t changed, incomplete;
+		bool changed, incomplete;
 		ret = channelscan_detect_programs(scan, result, &changed, &incomplete);
 		if (ret <= 0) {
 			return ret;

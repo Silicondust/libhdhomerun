@@ -39,7 +39,7 @@ extern LIBHDHOMERUN_API void hdhomerun_debug_set_prefix(struct hdhomerun_debug_t
 extern LIBHDHOMERUN_API void hdhomerun_debug_set_filename(struct hdhomerun_debug_t *dbg, const char *filename);
 extern LIBHDHOMERUN_API void hdhomerun_debug_enable(struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API void hdhomerun_debug_disable(struct hdhomerun_debug_t *dbg);
-extern LIBHDHOMERUN_API bool_t hdhomerun_debug_enabled(struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API bool hdhomerun_debug_enabled(struct hdhomerun_debug_t *dbg);
 
 extern LIBHDHOMERUN_API void hdhomerun_debug_flush(struct hdhomerun_debug_t *dbg, uint64_t timeout);
 extern LIBHDHOMERUN_API void hdhomerun_debug_close(struct hdhomerun_debug_t *dbg, uint64_t timeout);
