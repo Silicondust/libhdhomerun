@@ -1,7 +1,7 @@
 /*
  * hdhomerun_discover.c
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2017 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -427,7 +427,7 @@ int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t
 				if (getcurrenttime() >= timeout) {
 					break;
 				}
-				msleep_approx(10);
+				msleep_approx(16);
 				continue;
 			}
 

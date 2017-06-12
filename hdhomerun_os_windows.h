@@ -1,7 +1,7 @@
 /*
  * hdhomerun_os_windows.h
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2017 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -57,8 +57,9 @@
 #endif
 
 typedef void (*sig_t)(int);
-typedef HANDLE pthread_t;
-typedef HANDLE pthread_mutex_t;
+typedef void (*thread_task_func_t)(void *arg);
+typedef HANDLE thread_task_t;
+typedef HANDLE thread_mutex_t;
 typedef HANDLE thread_cond_t;
 
 #if !defined(va_copy)
@@ -71,8 +72,6 @@ typedef HANDLE thread_cond_t;
 #define strncasecmp _strnicmp
 #define fseeko _fseeki64
 #define ftello _ftelli64
-#define THREAD_FUNC_PREFIX DWORD WINAPI
-#define THREAD_FUNC_RESULT 0
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,12 +82,13 @@ extern LIBHDHOMERUN_API uint64_t getcurrenttime(void);
 extern LIBHDHOMERUN_API void msleep_approx(uint64_t ms);
 extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 
-extern LIBHDHOMERUN_API int pthread_create(pthread_t *tid, void *attr, LPTHREAD_START_ROUTINE start, void *arg);
-extern LIBHDHOMERUN_API int pthread_join(pthread_t tid, void **value_ptr);
-extern LIBHDHOMERUN_API void pthread_mutex_init(pthread_mutex_t *mutex, void *attr);
-extern LIBHDHOMERUN_API void pthread_mutex_dispose(pthread_mutex_t *mutex);
-extern LIBHDHOMERUN_API void pthread_mutex_lock(pthread_mutex_t *mutex);
-extern LIBHDHOMERUN_API void pthread_mutex_unlock(pthread_mutex_t *mutex);
+extern LIBHDHOMERUN_API bool thread_task_create(thread_task_t *tid, thread_task_func_t func, void *arg);
+extern LIBHDHOMERUN_API void thread_task_join(thread_task_t tid);
+
+extern LIBHDHOMERUN_API void thread_mutex_init(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_dispose(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_lock(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_unlock(thread_mutex_t *mutex);
 
 extern LIBHDHOMERUN_API void thread_cond_init(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_dispose(thread_cond_t *cond);

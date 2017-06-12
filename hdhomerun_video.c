@@ -21,7 +21,7 @@
 #include "hdhomerun.h"
 
 struct hdhomerun_video_sock_t {
-	pthread_mutex_t lock;
+	thread_mutex_t lock;
 	struct hdhomerun_debug_t *dbg;
 	struct hdhomerun_sock_t *sock;
 
@@ -36,7 +36,7 @@ struct hdhomerun_video_sock_t {
 	size_t buffer_size;
 	size_t advance;
 
-	pthread_t thread;
+	thread_task_t thread;
 	volatile bool terminate;
 
 	volatile uint32_t packet_count;
@@ -49,7 +49,7 @@ struct hdhomerun_video_sock_t {
 	volatile uint8_t sequence[0x2000];
 };
 
-static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg);
+static void hdhomerun_video_thread_execute(void *arg);
 
 struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg)
 {
@@ -61,7 +61,7 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	}
 
 	vs->dbg = dbg;
-	pthread_mutex_init(&vs->lock, NULL);
+	thread_mutex_init(&vs->lock);
 
 	/* Reset sequence tracking. */
 	hdhomerun_video_flush(vs);
@@ -98,7 +98,7 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	}
 
 	/* Start thread. */
-	if (pthread_create(&vs->thread, NULL, &hdhomerun_video_thread_execute, vs) != 0) {
+	if (!thread_task_create(&vs->thread, &hdhomerun_video_thread_execute, vs)) {
 		hdhomerun_debug_printf(dbg, "hdhomerun_video_create: failed to start thread\n");
 		goto error;
 	}
@@ -115,7 +115,7 @@ error:
 		free(vs->buffer);
 	}
 
-	pthread_mutex_dispose(&vs->lock);
+	thread_mutex_dispose(&vs->lock);
 
 	free(vs);
 	return NULL;
@@ -124,10 +124,10 @@ error:
 void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 {
 	vs->terminate = true;
-	pthread_join(vs->thread, NULL);
+	thread_task_join(vs->thread);
 
 	hdhomerun_sock_destroy(vs->sock);
-	pthread_mutex_dispose(&vs->lock);
+	thread_mutex_dispose(&vs->lock);
 	free(vs->buffer);
 
 	free(vs);
@@ -135,7 +135,7 @@ void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 
 void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t remote_addr, uint16_t remote_port, uint32_t lockkey)
 {
-	pthread_mutex_lock(&vs->lock);
+	thread_mutex_lock(&vs->lock);
 
 	vs->keepalive_addr = remote_addr;
 	vs->keepalive_port = remote_port;
@@ -145,7 +145,7 @@ void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t r
 		vs->keepalive_start = true;
 	}
 
-	pthread_mutex_unlock(&vs->lock);
+	thread_mutex_unlock(&vs->lock);
 }
 
 struct hdhomerun_sock_t *hdhomerun_video_get_sock(struct hdhomerun_video_sock_t *vs)
@@ -244,12 +244,12 @@ static void hdhomerun_video_parse_rtp(struct hdhomerun_video_sock_t *vs, struct 
 
 static void hdhomerun_video_thread_send_keepalive(struct hdhomerun_video_sock_t *vs)
 {
-	pthread_mutex_lock(&vs->lock);
+	thread_mutex_lock(&vs->lock);
 	uint32_t keepalive_lockkey = vs->keepalive_lockkey;
 	uint32_t keepalive_addr = vs->keepalive_addr;
 	uint16_t keepalive_port = vs->keepalive_port;
 	vs->keepalive_start = false;
-	pthread_mutex_unlock(&vs->lock);
+	thread_mutex_unlock(&vs->lock);
 
 	if ((keepalive_addr == 0) || (keepalive_port == 0)) {
 		return;
@@ -261,7 +261,7 @@ static void hdhomerun_video_thread_send_keepalive(struct hdhomerun_video_sock_t 
 	hdhomerun_sock_sendto(vs->sock, keepalive_addr, keepalive_port, pkt.start, pkt.end - pkt.start, 25);
 }
 
-static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
+static void hdhomerun_video_thread_execute(void *arg)
 {
 	struct hdhomerun_video_sock_t *vs = (struct hdhomerun_video_sock_t *)arg;
 	uint64_t send_time = getcurrenttime();
@@ -294,7 +294,7 @@ static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 			continue;
 		}
 
-		pthread_mutex_lock(&vs->lock);
+		thread_mutex_lock(&vs->lock);
 
 		/* Store in ring buffer. */
 		size_t head = vs->head;
@@ -320,21 +320,19 @@ static THREAD_FUNC_PREFIX hdhomerun_video_thread_execute(void *arg)
 		/* Check for buffer overflow. */
 		if (head == vs->tail) {
 			vs->overflow_error_count++;
-			pthread_mutex_unlock(&vs->lock);
+			thread_mutex_unlock(&vs->lock);
 			continue;
 		}
 
 		vs->head = head;
 
-		pthread_mutex_unlock(&vs->lock);
+		thread_mutex_unlock(&vs->lock);
 	}
-
-	return THREAD_FUNC_RESULT;
 }
 
 uint8_t *hdhomerun_video_recv(struct hdhomerun_video_sock_t *vs, size_t max_size, size_t *pactual_size)
 {
-	pthread_mutex_lock(&vs->lock);
+	thread_mutex_lock(&vs->lock);
 
 	size_t head = vs->head;
 	size_t tail = vs->tail;
@@ -351,7 +349,7 @@ uint8_t *hdhomerun_video_recv(struct hdhomerun_video_sock_t *vs, size_t max_size
 	if (head == tail) {
 		vs->advance = 0;
 		*pactual_size = 0;
-		pthread_mutex_unlock(&vs->lock);
+		thread_mutex_unlock(&vs->lock);
 		return NULL;
 	}
 
@@ -359,7 +357,7 @@ uint8_t *hdhomerun_video_recv(struct hdhomerun_video_sock_t *vs, size_t max_size
 	if (size == 0) {
 		vs->advance = 0;
 		*pactual_size = 0;
-		pthread_mutex_unlock(&vs->lock);
+		thread_mutex_unlock(&vs->lock);
 		return NULL;
 	}
 
@@ -376,13 +374,13 @@ uint8_t *hdhomerun_video_recv(struct hdhomerun_video_sock_t *vs, size_t max_size
 	*pactual_size = size;
 	uint8_t *result = vs->buffer + tail;
 
-	pthread_mutex_unlock(&vs->lock);
+	thread_mutex_unlock(&vs->lock);
 	return result;
 }
 
 void hdhomerun_video_flush(struct hdhomerun_video_sock_t *vs)
 {
-	pthread_mutex_lock(&vs->lock);
+	thread_mutex_lock(&vs->lock);
 
 	vs->tail = vs->head;
 	vs->advance = 0;
@@ -400,7 +398,7 @@ void hdhomerun_video_flush(struct hdhomerun_video_sock_t *vs)
 	vs->sequence_error_count = 0;
 	vs->overflow_error_count = 0;
 
-	pthread_mutex_unlock(&vs->lock);
+	thread_mutex_unlock(&vs->lock);
 }
 
 void hdhomerun_video_debug_print_stats(struct hdhomerun_video_sock_t *vs)
@@ -419,7 +417,7 @@ void hdhomerun_video_get_stats(struct hdhomerun_video_sock_t *vs, struct hdhomer
 {
 	memset(stats, 0, sizeof(struct hdhomerun_video_stats_t));
 
-	pthread_mutex_lock(&vs->lock);
+	thread_mutex_lock(&vs->lock);
 
 	stats->packet_count = vs->packet_count;
 	stats->network_error_count = vs->network_error_count;
@@ -427,5 +425,5 @@ void hdhomerun_video_get_stats(struct hdhomerun_video_sock_t *vs, struct hdhomer
 	stats->sequence_error_count = vs->sequence_error_count;
 	stats->overflow_error_count = vs->overflow_error_count;
 
-	pthread_mutex_unlock(&vs->lock);
+	thread_mutex_unlock(&vs->lock);
 }

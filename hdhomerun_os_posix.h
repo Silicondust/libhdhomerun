@@ -1,7 +1,7 @@
 /*
  * hdhomerun_os_posix.h
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2017 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -41,6 +41,9 @@
 #include <pthread.h>
 
 typedef void (*sig_t)(int);
+typedef void (*thread_task_func_t)(void *arg);
+typedef pthread_t thread_task_t;
+typedef pthread_mutex_t thread_mutex_t;
 
 typedef struct {
 	volatile bool signaled;
@@ -49,8 +52,6 @@ typedef struct {
 } thread_cond_t;
 
 #define LIBHDHOMERUN_API
-#define THREAD_FUNC_PREFIX void *
-#define THREAD_FUNC_RESULT NULL
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +62,13 @@ extern LIBHDHOMERUN_API uint64_t getcurrenttime(void);
 extern LIBHDHOMERUN_API void msleep_approx(uint64_t ms);
 extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 
-extern LIBHDHOMERUN_API void pthread_mutex_dispose(pthread_mutex_t *mutex);
+extern LIBHDHOMERUN_API bool thread_task_create(thread_task_t *tid, thread_task_func_t func, void *arg);
+extern LIBHDHOMERUN_API void thread_task_join(thread_task_t tid);
+
+extern LIBHDHOMERUN_API void thread_mutex_init(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_dispose(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_lock(thread_mutex_t *mutex);
+extern LIBHDHOMERUN_API void thread_mutex_unlock(thread_mutex_t *mutex);
 
 extern LIBHDHOMERUN_API void thread_cond_init(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_dispose(thread_cond_t *cond);
