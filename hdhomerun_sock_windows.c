@@ -335,7 +335,7 @@ bool hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uin
 	return true;
 }
 
-bool hdhomerun_sock_event_select(struct hdhomerun_sock_t *sock, long events)
+static bool hdhomerun_sock_event_select(struct hdhomerun_sock_t *sock, long events)
 {
 	if (sock->events_selected != events) {
 		if (WSAEventSelect(sock->sock, sock->event, events) == SOCKET_ERROR) {
