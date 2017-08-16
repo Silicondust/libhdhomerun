@@ -1,7 +1,7 @@
 /*
  * hdhomerun_config.c
  *
- * Copyright © 2006-206 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2017 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
