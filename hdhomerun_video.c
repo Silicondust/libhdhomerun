@@ -188,7 +188,7 @@ static void hdhomerun_video_stats_ts_pkt(struct hdhomerun_video_sock_t *vs, uint
 		return;
 	}
 
-	bool transport_error = ptr[1] >> 7;
+	bool transport_error = (ptr[1] & 0x80) != 0;
 	if (transport_error) {
 		vs->transport_error_count++;
 		vs->sequence[packet_identifier] = 0xFF;
