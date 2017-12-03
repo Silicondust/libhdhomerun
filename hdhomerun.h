@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+#ifndef HDHOMERUN_H
+#define HDHOMERUN_H
 #include "hdhomerun_os.h"
 #include "hdhomerun_types.h"
 #include "hdhomerun_pkt.h"
@@ -30,3 +32,4 @@
 #include "hdhomerun_channelscan.h"
 #include "hdhomerun_device.h"
 #include "hdhomerun_device_selector.h"
+#endif
