@@ -20,12 +20,10 @@
 
 #include "hdhomerun.h"
 
+#include <errno.h>
 #include <net/if.h>
+#include <stdio.h>
 #include <sys/ioctl.h>
-
-#ifndef SIOCGIFCONF
-#include <sys/sockio.h>
-#endif
 
 #ifndef _SIZEOF_ADDR_IFREQ
 #define _SIZEOF_ADDR_IFREQ(x) sizeof(x)
@@ -35,54 +33,39 @@
 #define MSG_NOSIGNAL 0
 #endif
 
+
 struct hdhomerun_sock_t {
 	int sock;
 };
 
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 	if (sock == -1) {
 		return -1;
 	}
 
-	struct ifconf ifc;
-	size_t ifreq_buffer_size = 1024;
-
-	while (1) {
-		ifc.ifc_len = (int)ifreq_buffer_size;
-		ifc.ifc_buf = (char *)malloc(ifreq_buffer_size);
-		if (!ifc.ifc_buf) {
-			close(sock);
-			return -1;
-		}
-
-		memset(ifc.ifc_buf, 0, ifreq_buffer_size);
-
-		if (ioctl(sock, SIOCGIFCONF, &ifc) != 0) {
-			free(ifc.ifc_buf);
-			close(sock);
-			return -1;
-		}
-
-		if (ifc.ifc_len < (int)ifreq_buffer_size) {
-			break;
-		}
-
-		free(ifc.ifc_buf);
-		ifreq_buffer_size += 1024;
+	/*
+	 * Retrieve network interfaces from OS. if_nameindex() dynamically allocates a list of 
+	 * network interface names and indexs. 
+	 */
+	struct if_nameindex *if_ni, *iter;
+	if_ni = if_nameindex();
+	if (if_ni == NULL) {
+		perror("if_nameindex");
+		exit(EXIT_FAILURE);
 	}
 
-	char *ptr = ifc.ifc_buf;
-	char *end = ifc.ifc_buf + ifc.ifc_len;
-
+ 	struct ifreq *ifr = malloc(sizeof(struct ifreq));
 	int count = 0;
-	while (ptr < end) {
-		struct ifreq *ifr = (struct ifreq *)ptr;
-		ptr += _SIZEOF_ADDR_IFREQ(*ifr);
+	for (iter = if_ni; ! (iter->if_index == 0 && iter->if_name == NULL); ++iter) {
+
+		/* Set interface's name for flag lookup. */
+		strncpy(ifr->ifr_name, iter->if_name, IF_NAMESIZE);
 
 		/* Flags. */
 		if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) {
+			fprintf(stderr, "ioctl: flags SIOCGIFFLAGS errno %d/%s\n", errno, strerror(errno));
 			continue;
 		}
 
@@ -122,7 +105,8 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 		count++;
 	}
 
-	free(ifc.ifc_buf);
+	if_freenameindex(if_ni);
+	free(ifr);
 	close(sock);
 	return count;
 }
