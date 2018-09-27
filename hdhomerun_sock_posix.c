@@ -332,12 +332,18 @@ bool hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr,
 	poll_event.events = POLLOUT;
 	poll_event.revents = 0;
 
-	if (poll(&poll_event, 1, (int)timeout) <= 0) {
+	int ret = poll(&poll_event, 1, (int)timeout);
+	if (ret < 0) {
+		return false;
+	} else if (ret == 0) {
+		errno = ETIMEDOUT;
 		return false;
 	}
 
-	if ((poll_event.revents & POLLOUT) == 0) {
-		return false;
+	if (connect(sock->sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) != 0) {
+		if (errno != EISCONN) {
+			return false;
+		}
 	}
 
 	return true;
