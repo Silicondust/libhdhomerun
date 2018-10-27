@@ -56,6 +56,14 @@
 #define LIBHDHOMERUN_API
 #endif
 
+#if !defined(__unused)
+#define __unused __pragma(warning(suppress: 4100 4101))
+#endif
+
+#if !defined(alignas) && !defined(__cplusplus)
+#define alignas(n) __declspec(align(n))
+#endif
+
 typedef void (*sig_t)(int);
 typedef void (*thread_task_func_t)(void *arg);
 typedef HANDLE thread_task_t;

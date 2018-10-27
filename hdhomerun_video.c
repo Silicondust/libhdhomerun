@@ -183,15 +183,23 @@ void hdhomerun_video_leave_multicast_group(struct hdhomerun_video_sock_t *vs, ui
 
 static void hdhomerun_video_stats_ts_pkt(struct hdhomerun_video_sock_t *vs, uint8_t *ptr)
 {
-	uint16_t packet_identifier = ((uint16_t)(ptr[1] & 0x1F) << 8) | (uint16_t)ptr[2];
+	uint16_t packet_identifier;
+	packet_identifier  = (uint16_t)(ptr[1] & 0x1F) << 8;
+	packet_identifier |= (uint16_t)ptr[2] << 0;
+
+	bool transport_error = (ptr[1] & 0x80) != 0;
+	if (transport_error) {
+		vs->transport_error_count++;
+		vs->sequence[packet_identifier] = 0xFF;
+		return;
+	}
+
 	if (packet_identifier == 0x1FFF) {
 		return;
 	}
 
-	bool transport_error = ptr[1] >> 7;
-	if (transport_error) {
-		vs->transport_error_count++;
-		vs->sequence[packet_identifier] = 0xFF;
+	bool payload_present = (ptr[3] & 0x10) != 0;
+	if (!payload_present) {
 		return;
 	}
 
@@ -204,9 +212,6 @@ static void hdhomerun_video_stats_ts_pkt(struct hdhomerun_video_sock_t *vs, uint
 		return;
 	}
 	if (sequence == ((previous_sequence + 1) & 0x0F)) {
-		return;
-	}
-	if (sequence == previous_sequence) {
 		return;
 	}
 
