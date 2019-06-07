@@ -53,7 +53,7 @@ typedef struct {
 
 #define LIBHDHOMERUN_API
 
-#if !defined(alignas)
+#if !defined(alignas) && !defined(__cplusplus)
 #define alignas(n) __attribute__((aligned(n)))
 #endif
 
