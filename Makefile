@@ -32,7 +32,7 @@ else
     LDFLAGS += -lsocket
   endif
   ifeq ($(OS),Darwin)
-    CFLAGS += -arch i386 -arch x86_64
+    CFLAGS += -arch x86_64
     LIBEXT := .dylib
     SHARED := -dynamiclib -install_name libhdhomerun$(LIBEXT)
   endif

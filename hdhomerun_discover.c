@@ -168,34 +168,12 @@ static bool hdhomerun_discover_send_internal(struct hdhomerun_discover_t *ds, st
 	return hdhomerun_sock_sendto(dss->sock, target_ip, HDHOMERUN_DISCOVER_UDP_PORT, tx_pkt->start, tx_pkt->end - tx_pkt->start, 0);
 }
 
-static bool hdhomerun_discover_send_wildcard_ip(struct hdhomerun_discover_t *ds, uint32_t device_type, uint32_t device_id)
+static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
 {
-	bool result = false;
-
-	/*
-	 * Send subnet broadcast using each local ip socket.
-	 * This will work with multiple separate 169.254.x.x interfaces.
-	 */
-	unsigned int i;
-	for (i = 1; i < ds->sock_count; i++) {
-		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
-		uint32_t target_ip = dss->local_ip | ~dss->subnet_mask;
-		result |= hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
+	if (target_ip == 0x00000000) {
+		target_ip = 0xFFFFFFFF;
 	}
 
-	/*
-	 * If no local ip sockets then fall back to sending a global broadcast letting the OS choose the interface.
-	 */
-	if (!result) {
-		struct hdhomerun_discover_sock_t *dss = &ds->socks[0];
-		result = hdhomerun_discover_send_internal(ds, dss, 0xFFFFFFFF, device_type, device_id);
-	}
-
-	return result;
-}
-
-static bool hdhomerun_discover_send_target_ip(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
-{
 	bool result = false;
 
 	/*
@@ -205,11 +183,14 @@ static bool hdhomerun_discover_send_target_ip(struct hdhomerun_discover_t *ds, u
 	unsigned int i;
 	for (i = 1; i < ds->sock_count; i++) {
 		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
-		if (dss->subnet_mask == 0) {
-			continue;
-		}
-		if ((target_ip & dss->subnet_mask) != (dss->local_ip & dss->subnet_mask)) {
-			continue;
+	
+		if (target_ip != 0xFFFFFFFF) {
+			if (dss->subnet_mask == 0) {
+				continue;
+			}
+			if ((target_ip & dss->subnet_mask) != (dss->local_ip & dss->subnet_mask)) {
+				continue;
+			}
 		}
 
 		result |= hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
@@ -224,15 +205,6 @@ static bool hdhomerun_discover_send_target_ip(struct hdhomerun_discover_t *ds, u
 	}
 
 	return result;
-}
-
-static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
-{
-	if (target_ip == 0) {
-		return hdhomerun_discover_send_wildcard_ip(ds, device_type, device_id);
-	} else {
-		return hdhomerun_discover_send_target_ip(ds, target_ip, device_type, device_id);
-	}
 }
 
 static bool hdhomerun_discover_is_legacy(uint32_t device_id)

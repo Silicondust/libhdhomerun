@@ -91,27 +91,37 @@ static int discover_print(char *target_ip_str)
 	}
 
 	struct hdhomerun_discover_device_t result_list[64];
-	int count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_TUNER, HDHOMERUN_DEVICE_ID_WILDCARD, result_list, 64);
-	if (count < 0) {
+	int result_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_WILDCARD, HDHOMERUN_DEVICE_ID_WILDCARD, result_list, 64);
+	if (result_count < 0) {
 		fprintf(stderr, "error sending discover request\n");
 		return -1;
 	}
-	if (count == 0) {
-		printf("no devices found\n");
-		return 0;
-	}
 
-	int index;
-	for (index = 0; index < count; index++) {
-		struct hdhomerun_discover_device_t *result = &result_list[index];
+	struct hdhomerun_discover_device_t *result = result_list;
+	struct hdhomerun_discover_device_t *result_end = result_list + result_count;
+
+	int valid_count = 0;
+	while (result < result_end) {
+		if (result->device_id == 0) {
+			result++;
+			continue;
+		}
+
 		printf("hdhomerun device %08X found at %u.%u.%u.%u\n",
 			(unsigned int)result->device_id,
 			(unsigned int)(result->ip_addr >> 24) & 0x0FF, (unsigned int)(result->ip_addr >> 16) & 0x0FF,
 			(unsigned int)(result->ip_addr >> 8) & 0x0FF, (unsigned int)(result->ip_addr >> 0) & 0x0FF
 		);
+
+		valid_count++;
+		result++;
 	}
 
-	return count;
+	if (valid_count == 0) {
+		printf("no devices found\n");
+	}
+
+	return valid_count;
 }
 
 static int cmd_get(const char *item)
