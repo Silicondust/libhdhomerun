@@ -20,7 +20,7 @@
 
 #include "hdhomerun.h"
 
-#if defined(LIBHDHOMERUN_USE_LEGACY_SIOCGIFCONF)
+#if defined(LIBHDHOMERUN_USE_SIOCGIFCONF)
 #include <sys/ioctl.h>
 #else
 #include <ifaddrs.h>
@@ -36,7 +36,7 @@ struct hdhomerun_sock_t {
 	int sock;
 };
 
-#if defined(LIBHDHOMERUN_USE_LEGACY_SIOCGIFCONF)
+#if defined(LIBHDHOMERUN_USE_SIOCGIFCONF)
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
 	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
