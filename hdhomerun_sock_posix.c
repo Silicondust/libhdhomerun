@@ -44,46 +44,43 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 		return -1;
 	}
 
+	int ifreq_buffer_size = 128 * sizeof(struct ifreq);
+	char *ifreq_buffer = (char *)calloc(ifreq_buffer_size, 1);
+	if (!ifreq_buffer) {
+		close(sock);
+		return -1;
+	}
+
 	struct ifconf ifc;
-	size_t ifreq_buffer_size = 0;
-	void *ifreq_buffer = NULL;
+	ifc.ifc_len = ifreq_buffer_size;
+	ifc.ifc_buf = ifreq_buffer;
 
-	while (1) {
-		ifreq_buffer_size += 64 * sizeof(struct ifreq);
-
-		void *old_buffer = ifreq_buffer;
-		ifreq_buffer = realloc(old_buffer, ifreq_buffer_size);
-		if (!ifreq_buffer) {
-			if (old_buffer) {
-				free(old_buffer);
-			}
-			close(sock);
-			return -1;
-		}
-
-		ifc.ifc_len = (int)ifreq_buffer_size;
-		ifc.ifc_buf = (char *)ifreq_buffer;
-		memset(ifreq_buffer, 0, ifreq_buffer_size);
-
-		if (ioctl(sock, SIOCGIFCONF, &ifc) != 0) {
-			free(ifreq_buffer);
-			close(sock);
-			return -1;
-		}
-
-		if (ifc.ifc_len < (int)ifreq_buffer_size) {
-			break;
-		}
+	if (ioctl(sock, SIOCGIFCONF, &ifc) != 0) {
+		free(ifreq_buffer);
+		close(sock);
+		return -1;
+	}
+	
+	if (ifc.ifc_len > ifreq_buffer_size) {
+		ifc.ifc_len = ifreq_buffer_size;
 	}
 
 	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
+	int count = 0;
+
 	char *ptr = ifc.ifc_buf;
 	char *end = ifc.ifc_buf + ifc.ifc_len;
-	int count = 0;
 
 	while (ptr + sizeof(struct ifreq) <= end) {
 		struct ifreq *ifr = (struct ifreq *)ptr;
 		ptr += sizeof(struct ifreq);
+
+		/* Local IP address. */
+		struct sockaddr_in *ip_addr_in = (struct sockaddr_in *)&ifr->ifr_addr;
+		uint32_t ip_addr = ntohl(ip_addr_in->sin_addr.s_addr);
+		if (ip_addr == 0) {
+			continue;
+		}
 
 		/* Flags. */
 		if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) {
@@ -92,17 +89,6 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 
 		unsigned int flags = ifr->ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING);
 		if (flags != (IFF_UP | IFF_RUNNING)) {
-			continue;
-		}
-
-		/* Local IP address. */
-		if (ioctl(sock, SIOCGIFADDR, ifr) != 0) {
-			continue;
-		}
-
-		struct sockaddr_in *ip_addr_in = (struct sockaddr_in *)&ifr->ifr_addr;
-		uint32_t ip_addr = ntohl(ip_addr_in->sin_addr.s_addr);
-		if (ip_addr == 0) {
 			continue;
 		}
 
