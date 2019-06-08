@@ -20,8 +20,13 @@
 
 #include "hdhomerun.h"
 
-#include <net/if.h>
+#if defined(LIBHDHOMERUN_USE_LEGACY_SIOCGIFCONF)
 #include <sys/ioctl.h>
+#else
+#include <ifaddrs.h>
+#endif
+
+#include <net/if.h>
 
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
@@ -30,48 +35,6 @@
 struct hdhomerun_sock_t {
 	int sock;
 };
-
-static bool hdhomerun_local_ip_info_add(struct hdhomerun_local_ip_info_t *ip_info, int sock, struct ifreq *ifr)
-{
-	/* Flags. */
-	if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) {
-		return false;
-	}
-
-	if ((ifr->ifr_flags & IFF_UP) == 0) {
-		return false;
-	}
-	if ((ifr->ifr_flags & IFF_RUNNING) == 0) {
-		return false;
-	}
-
-	/* Local IP address. */
-	if (ioctl(sock, SIOCGIFADDR, ifr) != 0) {
-		return false;
-	}
-
-	struct sockaddr_in *ip_addr_in = (struct sockaddr_in *)&ifr->ifr_addr;
-	uint32_t ip_addr = ntohl(ip_addr_in->sin_addr.s_addr);
-	if (ip_addr == 0) {
-		return false;
-	}
-
-	/* Subnet mask. */
-	if (ioctl(sock, SIOCGIFNETMASK, ifr) != 0) {
-		return false;
-	}
-
-	struct sockaddr_in *subnet_mask_in = (struct sockaddr_in *)&ifr->ifr_addr;
-	uint32_t subnet_mask = ntohl(subnet_mask_in->sin_addr.s_addr);
-
-	/* Result. */
-	if (ip_info) {
-		ip_info->ip_addr = ip_addr;
-		ip_info->subnet_mask = subnet_mask;
-	}
-
-	return true;
-}
 
 #if defined(LIBHDHOMERUN_USE_LEGACY_SIOCGIFCONF)
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
@@ -113,7 +76,7 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 		}
 	}
 
-	struct hdhomerun_local_ip_info_t *ip_info = (max_count > 0) ? ip_info_list : NULL;
+	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
 	char *ptr = ifc.ifc_buf;
 	char *end = ifc.ifc_buf + ifc.ifc_len;
 	int count = 0;
@@ -122,17 +85,43 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 		struct ifreq *ifr = (struct ifreq *)ptr;
 		ptr += sizeof(struct ifreq);
 
-		if (!hdhomerun_local_ip_info_add(ip_info, sock, ifr)) {
+		/* Flags. */
+		if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) {
 			continue;
 		}
 
-		count++;
+		unsigned int flags = ifr->ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING);
+		if (flags != (IFF_UP | IFF_RUNNING)) {
+			continue;
+		}
 
-		if (count >= max_count) {
-			ip_info = NULL;
-		} else {
+		/* Local IP address. */
+		if (ioctl(sock, SIOCGIFADDR, ifr) != 0) {
+			continue;
+		}
+
+		struct sockaddr_in *ip_addr_in = (struct sockaddr_in *)&ifr->ifr_addr;
+		uint32_t ip_addr = ntohl(ip_addr_in->sin_addr.s_addr);
+		if (ip_addr == 0) {
+			continue;
+		}
+
+		/* Subnet mask. */
+		if (ioctl(sock, SIOCGIFNETMASK, ifr) != 0) {
+			continue;
+		}
+
+		struct sockaddr_in *subnet_mask_in = (struct sockaddr_in *)&ifr->ifr_addr;
+		uint32_t subnet_mask = ntohl(subnet_mask_in->sin_addr.s_addr);
+
+		/* Result. */
+		if (count < max_count) {
+			ip_info->ip_addr = ip_addr;
+			ip_info->subnet_mask = subnet_mask;
 			ip_info++;
 		}
+
+		count++;
 	}
 
 	free(ifreq_buffer);
@@ -142,51 +131,50 @@ int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int
 #else
 int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
 {
-	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-	if (sock == -1) {
+	struct ifaddrs *ifaddrs;
+	if (getifaddrs(&ifaddrs) != 0) {
 		return -1;
 	}
 
-	struct if_nameindex *ni = if_nameindex();
-	if (!ni) {
-		close(sock);
-		return -1;
-	}
-
-	struct hdhomerun_local_ip_info_t *ip_info = (max_count > 0) ? ip_info_list : NULL;
-	struct if_nameindex *iter = ni;
+	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
+	struct ifaddrs *ifa = ifaddrs;
 	int count = 0;
 
-	while (1) {
-		if (!iter->if_name) {
-			if (iter->if_index == 0) {
-				break;
-			}
-
-			iter++;
+	while (ifa) {
+		if (ifa->ifa_addr == NULL) {
+			ifa = ifa->ifa_next;
 			continue;
 		}
 
-		struct ifreq ifr;
-		memset(&ifr, 0, sizeof(ifr));
-		strncpy(ifr.ifr_name, iter->if_name, IF_NAMESIZE);
-		iter++;
-
-		if (!hdhomerun_local_ip_info_add(ip_info, sock, &ifr)) {
+		if (ifa->ifa_addr->sa_family != AF_INET) {
+			ifa = ifa->ifa_next;
 			continue;
+		}
+
+		unsigned int flags = ifa->ifa_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING);
+		if (flags != (IFF_UP | IFF_RUNNING)) {
+			ifa = ifa->ifa_next;
+			continue;
+		}
+
+		struct sockaddr_in *addr_in = (struct sockaddr_in *)ifa->ifa_addr;
+		uint32_t ip_addr = ntohl(addr_in->sin_addr.s_addr);
+
+		struct sockaddr_in *netmask_in = (struct sockaddr_in *)ifa->ifa_netmask;
+		uint32_t subnet_mask = ntohl(netmask_in->sin_addr.s_addr);
+
+		ifa = ifa->ifa_next;
+
+		if (count < max_count) {
+			ip_info->ip_addr = ip_addr;
+			ip_info->subnet_mask = subnet_mask;
+			ip_info++;
 		}
 
 		count++;
-
-		if (count >= max_count) {
-			ip_info = NULL;
-		} else {
-			ip_info++;
-		}
 	}
 
-	if_freenameindex(ni);
-	close(sock);
+	freeifaddrs(ifaddrs);
 	return count;
 }
 #endif
