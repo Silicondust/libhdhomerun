@@ -183,7 +183,8 @@ static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t ta
 	unsigned int i;
 	for (i = 1; i < ds->sock_count; i++) {
 		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
-	
+		uint32_t send_ip = target_ip;
+
 		if (target_ip != 0xFFFFFFFF) {
 			if (dss->subnet_mask == 0) {
 				continue;
@@ -193,7 +194,18 @@ static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t ta
 			}
 		}
 
-		result |= hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
+#if defined(IP_ONESBCAST)
+		/* FreeBSD special handling - send subnet broadcast */
+		if (target_ip == 0xFFFFFFFF) {
+			send_ip = dss->local_ip | ~dss->subnet_mask;
+
+			if ((send_ip == 0x00000000) || (send_ip == 0xFFFFFFFF)) {
+				continue;
+			}
+		}
+#endif
+
+		result |= hdhomerun_discover_send_internal(ds, dss, send_ip, device_type, device_id);
 	}
 
 	/*
@@ -229,7 +241,7 @@ static bool hdhomerun_discover_is_legacy(uint32_t device_id)
 	}
 }
 
-static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, struct hdhomerun_discover_sock_t *dss, struct hdhomerun_discover_device_t *result)
+static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, struct hdhomerun_discover_sock_t *dss, size_t result_struct_size, struct hdhomerun_discover_device_t *result)
 {
 	static char hdhomerun_discover_recv_base64_encode_table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 	struct hdhomerun_pkt_t *rx_pkt = &ds->rx_pkt;
@@ -252,12 +264,9 @@ static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, st
 		return false;
 	}
 
-	memset(result, 0, sizeof(struct hdhomerun_discover_device_t));
+	struct hdhomerun_discover_device_v3_t *result_v3 = (result_struct_size >= sizeof(struct hdhomerun_discover_device_v3_t)) ? (struct hdhomerun_discover_device_v3_t *)(void *)result : NULL;
+	memset(result, 0, result_struct_size);
 	result->ip_addr = remote_addr;
-
-	hdhomerun_sprintf(result->base_url, result->base_url + sizeof(result->base_url), "http://%u.%u.%u.%u:80",
-		(remote_addr >> 24) & 0xFF, (remote_addr >> 16) & 0xFF, (remote_addr >> 8) & 0xFF, (remote_addr >> 0) & 0xFF
-	);
 
 	while (1) {
 		uint8_t tag;
@@ -299,13 +308,13 @@ static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, st
 			result->device_auth[len] = 0;
 			break;
 
-		case HDHOMERUN_TAG_DEVICE_AUTH_BIN:
+		case HDHOMERUN_TAG_DEVICE_AUTH_BIN_DEPRECATED:
 			if (len != 18) {
 				break;
 			}
 			for (i = 0; i < 24; i += 4) {
 				uint32_t raw24;
-				raw24  = (uint32_t)hdhomerun_pkt_read_u8(rx_pkt) << 16;
+				raw24 = (uint32_t)hdhomerun_pkt_read_u8(rx_pkt) << 16;
 				raw24 |= (uint32_t)hdhomerun_pkt_read_u8(rx_pkt) << 8;
 				raw24 |= (uint32_t)hdhomerun_pkt_read_u8(rx_pkt) << 0;
 				result->device_auth[i + 0] = hdhomerun_discover_recv_base64_encode_table[(raw24 >> 18) & 0x3F];
@@ -324,6 +333,39 @@ static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, st
 			result->base_url[len] = 0;
 			break;
 
+		case HDHOMERUN_TAG_STORAGE_ID:
+			if (!result_v3) {
+				break;
+			}
+			if (len >= sizeof(result_v3->storage_id)) {
+				break;
+			}
+			hdhomerun_pkt_read_mem(rx_pkt, result_v3->storage_id, len);
+			result_v3->storage_id[len] = 0;
+			break;
+
+		case HDHOMERUN_TAG_LINEUP_URL:
+			if (!result_v3) {
+				break;
+			}
+			if (len >= sizeof(result_v3->lineup_url)) {
+				break;
+			}
+			hdhomerun_pkt_read_mem(rx_pkt, result_v3->lineup_url, len);
+			result_v3->lineup_url[len] = 0;
+			break;
+
+		case HDHOMERUN_TAG_STORAGE_URL:
+			if (!result_v3) {
+				break;
+			}
+			if (len >= sizeof(result_v3->storage_url)) {
+				break;
+			}
+			hdhomerun_pkt_read_mem(rx_pkt, result_v3->storage_url, len);
+			result_v3->storage_url[len] = 0;
+			break;
+
 		default:
 			break;
 		}
@@ -331,34 +373,44 @@ static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, st
 		rx_pkt->pos = next;
 	}
 
-	/* Fixup for old firmware. */
-	if (result->tuner_count == 0) {
-		switch (result->device_id >> 20) {
-		case 0x102:
-			result->tuner_count = 1;
-			break;
+	/*
+	 * Fixup for old firmware.
+	 */
+	if (result->device_type == HDHOMERUN_DEVICE_TYPE_TUNER) {
+		if (result->tuner_count == 0) {
+			switch (result->device_id >> 20) {
+			case 0x102:
+				result->tuner_count = 1;
+				break;
 
-		case 0x100:
-		case 0x101:
-		case 0x121:
-			result->tuner_count = 2;
-			break;
+			case 0x100:
+			case 0x101:
+			case 0x121:
+				result->tuner_count = 2;
+				break;
 
-		default:
-			break;
+			default:
+				break;
+			}
+		}
+
+		if (!result->base_url[0]) {
+			hdhomerun_sprintf(result->base_url, result->base_url + sizeof(result->base_url), "http://%u.%u.%u.%u:80",
+				(remote_addr >> 24) & 0xFF, (remote_addr >> 16) & 0xFF, (remote_addr >> 8) & 0xFF, (remote_addr >> 0) & 0xFF
+			);
 		}
 	}
 
 	return true;
 }
 
-static bool hdhomerun_discover_recv(struct hdhomerun_discover_t *ds, struct hdhomerun_discover_device_t *result)
+static bool hdhomerun_discover_recv(struct hdhomerun_discover_t *ds, size_t result_struct_size, struct hdhomerun_discover_device_t *result)
 {
 	unsigned int i;
 	for (i = 0; i < ds->sock_count; i++) {
 		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
 
-		if (hdhomerun_discover_recv_internal(ds, dss, result)) {
+		if (hdhomerun_discover_recv_internal(ds, dss, result_struct_size, result)) {
 			return true;
 		}
 	}
@@ -366,36 +418,48 @@ static bool hdhomerun_discover_recv(struct hdhomerun_discover_t *ds, struct hdho
 	return false;
 }
 
-static struct hdhomerun_discover_device_t *hdhomerun_discover_find_in_list(struct hdhomerun_discover_device_t result_list[], int count, struct hdhomerun_discover_device_t *lookup)
+static struct hdhomerun_discover_device_t *hdhomerun_discover_result_by_index(size_t result_struct_size, struct hdhomerun_discover_device_t result_list[], int index)
+{
+	uint8_t *ptr = (uint8_t *)(void *)result_list;
+	ptr += result_struct_size * index;
+	return (struct hdhomerun_discover_device_t *)(void *)ptr;
+}
+
+static struct hdhomerun_discover_device_t *hdhomerun_discover_find_in_list(size_t result_struct_size, struct hdhomerun_discover_device_t result_list[], int count, struct hdhomerun_discover_device_t *lookup)
 {
 	int index;
 	for (index = 0; index < count; index++) {
-		struct hdhomerun_discover_device_t *entry = &result_list[index];
-		if (memcmp(lookup, entry, sizeof(struct hdhomerun_discover_device_t)) == 0) {
-			return entry;
+		struct hdhomerun_discover_device_t *entry = hdhomerun_discover_result_by_index(result_struct_size, result_list, index);
+		if (lookup->ip_addr != entry->ip_addr) {
+			continue;
 		}
+
+		if (strcmp(lookup->base_url, entry->base_url) != 0) {
+			continue;
+		}
+
+		return entry;
 	}
 
 	return NULL;
 }
 
-int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count)
+static int hdhomerun_discover_find_devices(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, size_t result_struct_size, struct hdhomerun_discover_device_t result_list[], int max_count)
 {
 	hdhomerun_discover_sock_detect(ds);
 
 	int count = 0;
 	int attempt;
 	for (attempt = 0; attempt < 2; attempt++) {
-		if (!hdhomerun_discover_send(ds, target_ip, device_type, device_id)) {
+		if (!hdhomerun_discover_send(ds, target_ip, device_type_match, device_id_match)) {
 			return -1;
 		}
 
 		uint64_t timeout = getcurrenttime() + 200;
 		while (1) {
-			struct hdhomerun_discover_device_t *result = &result_list[count];
-			memset(result, 0, sizeof(struct hdhomerun_discover_device_t));
+			struct hdhomerun_discover_device_t *result = hdhomerun_discover_result_by_index(result_struct_size, result_list, count);
 
-			if (!hdhomerun_discover_recv(ds, result)) {
+			if (!hdhomerun_discover_recv(ds, result_struct_size, result)) {
 				if (getcurrenttime() >= timeout) {
 					break;
 				}
@@ -403,20 +467,16 @@ int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t
 				continue;
 			}
 
-			/* Filter. */
-			if (device_type != HDHOMERUN_DEVICE_TYPE_WILDCARD) {
-				if (device_type != result->device_type) {
-					continue;
-				}
+			/* Filter */
+			if ((device_type_match != HDHOMERUN_DEVICE_TYPE_WILDCARD) && (result->device_type != device_type_match)) {
+				continue;
 			}
-			if (device_id != HDHOMERUN_DEVICE_ID_WILDCARD) {
-				if (device_id != result->device_id) {
-					continue;
-				}
+			if ((device_id_match != HDHOMERUN_DEVICE_ID_WILDCARD) && (result->device_id != device_id_match)) {
+				continue;
 			}
 
 			/* Ensure not already in list. */
-			if (hdhomerun_discover_find_in_list(result_list, count, result)) {
+			if (hdhomerun_discover_find_in_list(result_struct_size, result_list, count, result)) {
 				continue;
 			}
 
@@ -431,19 +491,36 @@ int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t
 	return count;
 }
 
-int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count)
+int hdhomerun_discover_find_devices_v3(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_v3_t result_list[], int max_count)
 {
-	if (hdhomerun_discover_is_ip_multicast(target_ip)) {
-		return 0;
-	}
+	return hdhomerun_discover_find_devices(ds, target_ip, device_type_match, device_id_match, sizeof(struct hdhomerun_discover_device_v3_t), (struct hdhomerun_discover_device_t *)(void *)result_list, max_count);
+}
 
+int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_t result_list[], int max_count)
+{
+	return hdhomerun_discover_find_devices(ds, target_ip, device_type_match, device_id_match, sizeof(struct hdhomerun_discover_device_t), (struct hdhomerun_discover_device_t *)(void *)result_list, max_count);
+}
+
+int hdhomerun_discover_find_devices_custom_v3(uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_v3_t result_list[], int max_count)
+{
 	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(NULL);
 	if (!ds) {
 		return -1;
 	}
 
-	int ret = hdhomerun_discover_find_devices_v2(ds, target_ip, device_type, device_id, result_list, max_count);
+	int ret = hdhomerun_discover_find_devices(ds, target_ip, device_type_match, device_id_match, sizeof(struct hdhomerun_discover_device_v3_t), (struct hdhomerun_discover_device_t *)(void *)result_list, max_count);
+	hdhomerun_discover_destroy(ds);
+	return ret;
+}
 
+int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_t result_list[], int max_count)
+{
+	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(NULL);
+	if (!ds) {
+		return -1;
+	}
+
+	int ret = hdhomerun_discover_find_devices(ds, target_ip, device_type_match, device_id_match, sizeof(struct hdhomerun_discover_device_t), (struct hdhomerun_discover_device_t *)(void *)result_list, max_count);
 	hdhomerun_discover_destroy(ds);
 	return ret;
 }
