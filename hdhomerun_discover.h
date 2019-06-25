@@ -1,7 +1,7 @@
 /*
  * hdhomerun_discover.h
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2019 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -31,12 +31,26 @@ struct hdhomerun_discover_device_t {
 	char base_url[29];
 };
 
+struct hdhomerun_discover_device_v3_t {
+	uint32_t ip_addr;
+	uint32_t device_type;
+	uint32_t device_id;
+	uint8_t tuner_count;
+	bool is_legacy;
+	char device_auth[25];
+	char base_url[29];
+
+	char storage_id[37];
+	char lineup_url[128];
+	char storage_url[128];
+};
+
 /*
  * Find devices.
  *
  * The device information is stored in caller-supplied array of hdhomerun_discover_device_t vars.
  * Multiple attempts are made to find devices.
- * Execution time is typically 400ms if max_count is not reached.
+ * Execution time is typically 400ms unless max_count is reached.
  *
  * Set target_ip to zero to auto-detect the IP address.
  * Set device_type to HDHOMERUN_DEVICE_TYPE_TUNER to detect HDHomeRun tuner devices.
@@ -45,14 +59,16 @@ struct hdhomerun_discover_device_t {
  * Returns the number of devices found.
  * Retruns -1 on error.
  */
-extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_custom_v2(uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_custom_v3(uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_v3_t result_list[], int max_count);
 
 /*
  * Optional: persistent discover instance available for discover polling use.
  */
 extern LIBHDHOMERUN_API struct hdhomerun_discover_t *hdhomerun_discover_create(struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API void hdhomerun_discover_destroy(struct hdhomerun_discover_t *ds);
-extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_v2(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_t result_list[], int max_count);
+extern LIBHDHOMERUN_API int hdhomerun_discover_find_devices_v3(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, struct hdhomerun_discover_device_v3_t result_list[], int max_count);
 
 /*
  * Verify that the device ID given is valid.
