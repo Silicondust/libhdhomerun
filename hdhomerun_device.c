@@ -377,6 +377,9 @@ static bool hdhomerun_device_get_tuner_status_lock_is_bcast(struct hdhomerun_tun
 	if (strcmp(status->lock_str, "8vsb") == 0) {
 		return true;
 	}
+	if (strcmp(status->lock_str, "atsc3") == 0) {
+		return true;
+	}
 	if (strncmp(status->lock_str, "t8", 2) == 0) {
 		return true;
 	}

@@ -113,6 +113,7 @@ void thread_task_join(thread_task_t tid)
 			return;
 		}
 		if (ExitCode != STILL_ACTIVE) {
+			CloseHandle(tid);
 			return;
 		}
 	}
