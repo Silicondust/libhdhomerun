@@ -480,7 +480,7 @@ int hdhomerun_device_get_tuner_status(struct hdhomerun_device_t *hd, char **psta
 		status->raw_bits_per_second = hdhomerun_device_get_status_parse(status_str, "bps=");
 		status->packets_per_second = hdhomerun_device_get_status_parse(status_str, "pps=");
 
-		status->signal_present = status->signal_strength >= 45;
+		status->signal_present = status->signal_strength >= 30;
 
 		if (strcmp(status->lock_str, "none") != 0) {
 			if (status->lock_str[0] == '(') {
@@ -526,7 +526,7 @@ int hdhomerun_device_get_oob_status(struct hdhomerun_device_t *hd, char **pstatu
 
 		status->signal_strength = (unsigned int)hdhomerun_device_get_status_parse(status_str, "ss=");
 		status->signal_to_noise_quality = (unsigned int)hdhomerun_device_get_status_parse(status_str, "snq=");
-		status->signal_present = status->signal_strength >= 45;
+		status->signal_present = status->signal_strength >= 30;
 		status->lock_supported = (strcmp(status->lock_str, "none") != 0);
 	}
 
