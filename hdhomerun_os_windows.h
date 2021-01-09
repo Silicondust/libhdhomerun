@@ -56,6 +56,8 @@
 #define LIBHDHOMERUN_API
 #endif
 
+#define LIBHDHOMERUN_PACKED(x) __pragma(pack(push, 1)) x __pragma( pack(pop))
+
 #if !defined(__unused)
 #define __unused __pragma(warning(suppress: 4100 4101))
 #endif

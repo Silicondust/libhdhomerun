@@ -105,6 +105,7 @@ extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_local_machine_addr(struct 
  */
 extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_status(struct hdhomerun_device_t *hd, char **pstatus_str, struct hdhomerun_tuner_status_t *status);
 extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_vstatus(struct hdhomerun_device_t *hd, char **pvstatus_str, struct hdhomerun_tuner_vstatus_t *vstatus);
+extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_plpinfo(struct hdhomerun_device_t *hd, char **pplpinfo);
 extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_streaminfo(struct hdhomerun_device_t *hd, char **pstreaminfo);
 extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_channel(struct hdhomerun_device_t *hd, char **pchannel);
 extern LIBHDHOMERUN_API int hdhomerun_device_get_tuner_vchannel(struct hdhomerun_device_t *hd, char **pvchannel);
