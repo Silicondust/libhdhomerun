@@ -46,6 +46,10 @@
 #include <time.h>
 #include <sys/types.h>
 
+#define SystemFunction036 NTAPI SystemFunction036
+#include <ntsecapi.h>
+#undef SystemFunction036
+
 #ifdef LIBHDHOMERUN_DLLEXPORT
 #define LIBHDHOMERUN_API __declspec(dllexport)
 #endif
