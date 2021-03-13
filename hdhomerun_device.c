@@ -377,6 +377,9 @@ static bool hdhomerun_device_get_tuner_status_lock_is_bcast(struct hdhomerun_tun
 	if (strcmp(status->lock_str, "8vsb") == 0) {
 		return true;
 	}
+	if (strcmp(status->lock_str, "atsc3") == 0) {
+		return true;
+	}
 	if (strncmp(status->lock_str, "t8", 2) == 0) {
 		return true;
 	}
@@ -477,7 +480,7 @@ int hdhomerun_device_get_tuner_status(struct hdhomerun_device_t *hd, char **psta
 		status->raw_bits_per_second = hdhomerun_device_get_status_parse(status_str, "bps=");
 		status->packets_per_second = hdhomerun_device_get_status_parse(status_str, "pps=");
 
-		status->signal_present = status->signal_strength >= 45;
+		status->signal_present = status->signal_strength >= 35;
 
 		if (strcmp(status->lock_str, "none") != 0) {
 			if (status->lock_str[0] == '(') {
@@ -523,7 +526,7 @@ int hdhomerun_device_get_oob_status(struct hdhomerun_device_t *hd, char **pstatu
 
 		status->signal_strength = (unsigned int)hdhomerun_device_get_status_parse(status_str, "ss=");
 		status->signal_to_noise_quality = (unsigned int)hdhomerun_device_get_status_parse(status_str, "snq=");
-		status->signal_present = status->signal_strength >= 45;
+		status->signal_present = status->signal_strength >= 35;
 		status->lock_supported = (strcmp(status->lock_str, "none") != 0);
 	}
 
@@ -598,6 +601,18 @@ int hdhomerun_device_get_tuner_vstatus(struct hdhomerun_device_t *hd, char **pvs
 	}
 
 	return 1;
+}
+
+int hdhomerun_device_get_tuner_plpinfo(struct hdhomerun_device_t *hd, char **pplpinfo)
+{
+	if (!hd->cs) {
+		hdhomerun_debug_printf(hd->dbg, "hdhomerun_device_get_tuner_plpinfo: device not set\n");
+		return -1;
+	}
+
+	char name[32];
+	hdhomerun_sprintf(name, name + sizeof(name), "/tuner%u/plpinfo", hd->tuner);
+	return hdhomerun_control_get(hd->cs, name, pplpinfo, NULL);
 }
 
 int hdhomerun_device_get_tuner_streaminfo(struct hdhomerun_device_t *hd, char **pstreaminfo)

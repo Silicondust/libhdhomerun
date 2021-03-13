@@ -165,12 +165,13 @@ static int cmd_set(const char *item, const char *value)
 		size_t pos = 0;
 
 		while (1) {
-			buffer = (char *)realloc(buffer, pos + 1024);
-			if (!buffer) {
+			char *new_buffer = (char *)realloc(buffer, pos + 1024);
+			if (!new_buffer) {
 				fprintf(stderr, "out of memory\n");
 				return -1;
 			}
 
+			buffer = new_buffer;
 			size_t size = fread(buffer + pos, 1, 1024, stdin);
 			pos += size;
 
