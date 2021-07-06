@@ -67,6 +67,14 @@ static const struct hdhomerun_channelmap_range_t hdhomerun_channelmap_range_eu_c
 	{  0,   0,         0,       0}
 };
 
+/* KR antenna channels. */
+static const struct hdhomerun_channelmap_range_t hdhomerun_channelmap_range_kr_bcast[] = {
+        {  2,  70,  93000000, 6000000},
+        { 71,  74, 501000000, 6000000},
+        { 75, 120, 531000000, 6000000},
+        {  0,   0,         0,       0}
+};
+
 /* KR cable channels. */
 static const struct hdhomerun_channelmap_range_t hdhomerun_channelmap_range_kr_cable[] = {
 	{  2,   4,  57000000, 6000000},
@@ -147,7 +155,7 @@ static const struct hdhomerun_channelmap_record_t hdhomerun_channelmap_table[] =
 	{"tw-bcast", hdhomerun_channelmap_range_tw_bcast, "tw-bcast",               "TW"},
 	{"tw-cable", hdhomerun_channelmap_range_us_cable, "tw-cable",               "TW"},
 
-	{"kr-bcast", hdhomerun_channelmap_range_us_bcast, "kr-bcast",               "KR"},
+	{"kr-bcast", hdhomerun_channelmap_range_kr_bcast, "kr-bcast",               "KR"},
 	{"kr-cable", hdhomerun_channelmap_range_kr_cable, "kr-cable",               "KR"},
 	{"us-bcast", hdhomerun_channelmap_range_us_bcast, "us-bcast",               NULL},
 	{"us-cable", hdhomerun_channelmap_range_us_cable, "us-cable us-hrc us-irc", NULL},
