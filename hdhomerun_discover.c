@@ -168,55 +168,94 @@ static bool hdhomerun_discover_send_internal(struct hdhomerun_discover_t *ds, st
 	return hdhomerun_sock_sendto(dss->sock, target_ip, HDHOMERUN_DISCOVER_UDP_PORT, tx_pkt->start, tx_pkt->end - tx_pkt->start, 0);
 }
 
-static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
+static bool hdhomerun_discover_send_targeted(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
 {
-	if (target_ip == 0x00000000) {
-		target_ip = 0xFFFFFFFF;
-	}
-
-	bool result = false;
-
 	/*
 	 * Send targeted packet from any local ip that is in the same subnet.
-	 * This will work with multiple separate 169.254.x.x interfaces.
+	 * This is needed to support multiple separate 169.254.x.x interfaces.
 	 */
+	bool result = false;
 	unsigned int i;
+
 	for (i = 1; i < ds->sock_count; i++) {
 		struct hdhomerun_discover_sock_t *dss = &ds->socks[i];
-		uint32_t send_ip = target_ip;
-
-		if (target_ip != 0xFFFFFFFF) {
-			if (dss->subnet_mask == 0) {
-				continue;
-			}
-			if ((target_ip & dss->subnet_mask) != (dss->local_ip & dss->subnet_mask)) {
-				continue;
-			}
+		if (dss->subnet_mask == 0) {
+			continue;
 		}
 
-#if defined(IP_ONESBCAST)
-		/* FreeBSD special handling - send subnet broadcast */
-		if (target_ip == 0xFFFFFFFF) {
-			send_ip = dss->local_ip | ~dss->subnet_mask;
-
-			if ((send_ip == 0x00000000) || (send_ip == 0xFFFFFFFF)) {
-				continue;
-			}
+		if ((target_ip & dss->subnet_mask) != (dss->local_ip & dss->subnet_mask)) {
+			continue;
 		}
+
+		result |= hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
+	}
+
+	if (result) {
+		return true;
+	}
+
+	/*
+	 * Fall back to letting the OS choose the interface.
+	 */
+	struct hdhomerun_discover_sock_t *dss = &ds->socks[0];
+	return hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
+}
+
+static bool hdhomerun_discover_send_broadcast(struct hdhomerun_discover_t *ds, uint32_t device_type, uint32_t device_id)
+{
+	struct hdhomerun_discover_sock_t *dss;
+	bool result = false;
+	unsigned int i;
+
+#if !defined(IP_ONESBCAST)
+	/*
+	 * Send global broadcast from every local ip.
+	 */
+	for (i = 1; i < ds->sock_count; i++) {
+		dss = &ds->socks[i];
+		result |= hdhomerun_discover_send_internal(ds, dss, 0xFFFFFFFF, device_type, device_id);
+	}
+
+	if (result) {
+		return true;
+	}
+
+	/*
+	 * Fall back to letting the OS choose the interface.
+	 */
+	dss = &ds->socks[0];
+	if (hdhomerun_discover_send_internal(ds, dss, 0xFFFFFFFF, device_type, device_id)) {
+		return true;
+	}
 #endif
+
+	/*
+	 * Fall back to sending subnet broadcasts.
+	 */
+	for (i = 1; i < ds->sock_count; i++) {
+		dss = &ds->socks[i];
+		if (dss->subnet_mask == 0) {
+			continue;
+		}
+
+		uint32_t send_ip = dss->local_ip | ~dss->subnet_mask;
+		if (send_ip >= 0xE0000000) {
+			continue;
+		}
 
 		result |= hdhomerun_discover_send_internal(ds, dss, send_ip, device_type, device_id);
 	}
 
-	/*
-	 * If target IP does not match a local subnet then fall back to letting the OS choose the gateway interface.
-	 */
-	if (!result) {
-		struct hdhomerun_discover_sock_t *dss = &ds->socks[0];
-		result = hdhomerun_discover_send_internal(ds, dss, target_ip, device_type, device_id);
-	}
-
 	return result;
+}
+
+static bool hdhomerun_discover_send(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type, uint32_t device_id)
+{
+	if (target_ip == 0xFFFFFFFF) {
+		return hdhomerun_discover_send_broadcast(ds, device_type, device_id);
+	} else {
+		return hdhomerun_discover_send_targeted(ds, target_ip, device_type, device_id);
+	}
 }
 
 static bool hdhomerun_discover_is_legacy(uint32_t device_id)
@@ -243,7 +282,7 @@ static bool hdhomerun_discover_is_legacy(uint32_t device_id)
 
 static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, struct hdhomerun_discover_sock_t *dss, size_t result_struct_size, struct hdhomerun_discover_device_t *result)
 {
-	static char hdhomerun_discover_recv_base64_encode_table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	static char hdhomerun_discover_recv_base64_encode_table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 	struct hdhomerun_pkt_t *rx_pkt = &ds->rx_pkt;
 	hdhomerun_pkt_reset(rx_pkt);
 
@@ -446,6 +485,10 @@ static struct hdhomerun_discover_device_t *hdhomerun_discover_find_in_list(size_
 
 static int hdhomerun_discover_find_devices(struct hdhomerun_discover_t *ds, uint32_t target_ip, uint32_t device_type_match, uint32_t device_id_match, size_t result_struct_size, struct hdhomerun_discover_device_t result_list[], int max_count)
 {
+	if (target_ip == 0x00000000) {
+		target_ip = 0xFFFFFFFF;
+	}
+
 	hdhomerun_discover_sock_detect(ds);
 
 	int count = 0;
