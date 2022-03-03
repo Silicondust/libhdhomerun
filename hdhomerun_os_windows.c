@@ -20,34 +20,12 @@
 
 #include "hdhomerun.h"
 
-#if defined(_WINRT)
 uint32_t random_get32(void)
 {
-	return (uint32_t)getcurrenttime();
-}
-#else
-uint32_t random_get32(void)
-{
-	static DWORD random_get32_context_tls = 0xFFFFFFFF;
-	if (random_get32_context_tls == 0xFFFFFFFF) {
-		random_get32_context_tls = TlsAlloc();
-	}
-
-	HCRYPTPROV *phProv = (HCRYPTPROV *)TlsGetValue(random_get32_context_tls);
-	if (!phProv) {
-		phProv = (HCRYPTPROV *)calloc(1, sizeof(HCRYPTPROV));
-		CryptAcquireContext(phProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT);
-		TlsSetValue(random_get32_context_tls, phProv);
-	}
-
-	uint32_t Result;
-	if (!CryptGenRandom(*phProv, sizeof(Result), (BYTE *)&Result)) {
-		return (uint32_t)getcurrenttime();
-	}
-
+	uint32_t Result = 0;
+	BCryptGenRandom(NULL, (uint8_t *)&Result, 4, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 	return Result;
 }
-#endif
 
 uint64_t getcurrenttime(void)
 {
