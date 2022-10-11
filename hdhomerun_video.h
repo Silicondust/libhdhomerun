@@ -1,7 +1,7 @@
 /*
  * hdhomerun_video.h
  *
- * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -49,12 +49,14 @@ struct hdhomerun_video_stats_t {
  * When no longer needed, the socket should be destroyed by calling hdhomerun_control_destroy.
  */
 extern LIBHDHOMERUN_API struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API struct hdhomerun_video_sock_t *hdhomerun_video_create_ex(const struct sockaddr *listen_addr, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs);
 
 /*
  * Configure to send a keepalive packet every second.
  */
 extern LIBHDHOMERUN_API void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t remote_addr, uint16_t remote_port, uint32_t lockkey);
+extern LIBHDHOMERUN_API void hdhomerun_video_set_keepalive_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *remote_addr, uint32_t lockkey);
 
 /*
  * Get the port the socket is listening on.
@@ -67,7 +69,9 @@ extern LIBHDHOMERUN_API uint16_t hdhomerun_video_get_local_port(struct hdhomerun
  * Join/leave multicast group.
  */
 extern LIBHDHOMERUN_API int hdhomerun_video_join_multicast_group(struct hdhomerun_video_sock_t *vs, uint32_t multicast_ip, uint32_t local_ip);
+extern LIBHDHOMERUN_API int hdhomerun_video_join_multicast_group_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr);
 extern LIBHDHOMERUN_API void hdhomerun_video_leave_multicast_group(struct hdhomerun_video_sock_t *vs, uint32_t multicast_ip, uint32_t local_ip);
+extern LIBHDHOMERUN_API void hdhomerun_video_leave_multicast_group_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr);
 
 /*
  * Read data from buffer.

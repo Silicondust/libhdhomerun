@@ -1,7 +1,7 @@
 /*
  * hdhomerun_sock_posix.c
  *
- * Copyright © 2010-2019 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2010-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -20,14 +20,6 @@
 
 #include "hdhomerun.h"
 
-#if defined(LIBHDHOMERUN_USE_SIOCGIFCONF)
-#include <sys/ioctl.h>
-#else
-#include <ifaddrs.h>
-#endif
-
-#include <net/if.h>
-
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
@@ -36,136 +28,7 @@ struct hdhomerun_sock_t {
 	int sock;
 };
 
-#if defined(LIBHDHOMERUN_USE_SIOCGIFCONF)
-int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
-{
-	int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-	if (sock == -1) {
-		return -1;
-	}
-
-	int ifreq_buffer_size = 128 * sizeof(struct ifreq);
-	char *ifreq_buffer = (char *)calloc(ifreq_buffer_size, 1);
-	if (!ifreq_buffer) {
-		close(sock);
-		return -1;
-	}
-
-	struct ifconf ifc;
-	ifc.ifc_len = ifreq_buffer_size;
-	ifc.ifc_buf = ifreq_buffer;
-
-	if (ioctl(sock, SIOCGIFCONF, &ifc) != 0) {
-		free(ifreq_buffer);
-		close(sock);
-		return -1;
-	}
-	
-	if (ifc.ifc_len > ifreq_buffer_size) {
-		ifc.ifc_len = ifreq_buffer_size;
-	}
-
-	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
-	int count = 0;
-
-	char *ptr = ifc.ifc_buf;
-	char *end = ifc.ifc_buf + ifc.ifc_len;
-
-	while (ptr + sizeof(struct ifreq) <= end) {
-		struct ifreq *ifr = (struct ifreq *)ptr;
-		ptr += sizeof(struct ifreq);
-
-		/* Local IP address. */
-		struct sockaddr_in *ip_addr_in = (struct sockaddr_in *)&ifr->ifr_addr;
-		uint32_t ip_addr = ntohl(ip_addr_in->sin_addr.s_addr);
-		if (ip_addr == 0) {
-			continue;
-		}
-
-		/* Flags. */
-		if (ioctl(sock, SIOCGIFFLAGS, ifr) != 0) {
-			continue;
-		}
-
-		unsigned int flags = ifr->ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING);
-		if (flags != (IFF_UP | IFF_RUNNING)) {
-			continue;
-		}
-
-		/* Subnet mask. */
-		if (ioctl(sock, SIOCGIFNETMASK, ifr) != 0) {
-			continue;
-		}
-
-		struct sockaddr_in *subnet_mask_in = (struct sockaddr_in *)&ifr->ifr_addr;
-		uint32_t subnet_mask = ntohl(subnet_mask_in->sin_addr.s_addr);
-
-		/* Result. */
-		if (count < max_count) {
-			ip_info->ip_addr = ip_addr;
-			ip_info->subnet_mask = subnet_mask;
-			ip_info++;
-		}
-
-		count++;
-	}
-
-	free(ifreq_buffer);
-	close(sock);
-	return count;
-}
-#else
-int hdhomerun_local_ip_info(struct hdhomerun_local_ip_info_t ip_info_list[], int max_count)
-{
-	struct ifaddrs *ifaddrs;
-	if (getifaddrs(&ifaddrs) != 0) {
-		return -1;
-	}
-
-	struct hdhomerun_local_ip_info_t *ip_info = ip_info_list;
-	struct ifaddrs *ifa = ifaddrs;
-	int count = 0;
-
-	while (ifa) {
-		if (ifa->ifa_addr == NULL) {
-			ifa = ifa->ifa_next;
-			continue;
-		}
-
-		if (ifa->ifa_addr->sa_family != AF_INET) {
-			ifa = ifa->ifa_next;
-			continue;
-		}
-
-		unsigned int flags = ifa->ifa_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING);
-		if (flags != (IFF_UP | IFF_RUNNING)) {
-			ifa = ifa->ifa_next;
-			continue;
-		}
-
-		struct sockaddr_in *addr_in = (struct sockaddr_in *)ifa->ifa_addr;
-		uint32_t ip_addr = ntohl(addr_in->sin_addr.s_addr);
-
-		struct sockaddr_in *netmask_in = (struct sockaddr_in *)ifa->ifa_netmask;
-		uint32_t subnet_mask = ntohl(netmask_in->sin_addr.s_addr);
-
-		ifa = ifa->ifa_next;
-
-		if (count < max_count) {
-			ip_info->ip_addr = ip_addr;
-			ip_info->subnet_mask = subnet_mask;
-			ip_info++;
-		}
-
-		count++;
-	}
-
-	freeifaddrs(ifaddrs);
-	return count;
-}
-#endif
-
-static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int protocol)
+static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int af, int protocol)
 {
 	struct hdhomerun_sock_t *sock = (struct hdhomerun_sock_t *)calloc(1, sizeof(struct hdhomerun_sock_t));
 	if (!sock) {
@@ -173,7 +36,7 @@ static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int protocol)
 	}
 
 	/* Create socket. */
-	sock->sock = socket(AF_INET, protocol, 0);
+	sock->sock = socket(af, protocol, 0);
 	if (sock->sock == -1) {
 		free(sock);
 		return NULL;
@@ -191,13 +54,19 @@ static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int protocol)
 	setsockopt(sock->sock, SOL_SOCKET, SO_NOSIGPIPE, (char *)&set, sizeof(set));
 #endif
 
+	/* Set ipv6 */
+	if (af == AF_INET6) {
+		int sock_opt_ipv6only = 1;
+		setsockopt(sock->sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&sock_opt_ipv6only, sizeof(sock_opt_ipv6only));
+	}
+
 	/* Success. */
 	return sock;
 }
 
-struct hdhomerun_sock_t *hdhomerun_sock_create_udp(void)
+struct hdhomerun_sock_t *hdhomerun_sock_create_udp_ex(int af)
 {
-	struct hdhomerun_sock_t *sock = hdhomerun_sock_create_internal(SOCK_DGRAM);
+	struct hdhomerun_sock_t *sock = hdhomerun_sock_create_internal(af, SOCK_DGRAM);
 	if (!sock) {
 		return NULL;
 	}
@@ -210,9 +79,9 @@ struct hdhomerun_sock_t *hdhomerun_sock_create_udp(void)
 	return sock;
 }
 
-struct hdhomerun_sock_t *hdhomerun_sock_create_tcp(void)
+struct hdhomerun_sock_t *hdhomerun_sock_create_tcp_ex(int af)
 {
-	return hdhomerun_sock_create_internal(SOCK_STREAM);
+	return hdhomerun_sock_create_internal(af, SOCK_STREAM);
 }
 
 void hdhomerun_sock_destroy(struct hdhomerun_sock_t *sock)
@@ -244,122 +113,166 @@ void hdhomerun_sock_set_allow_reuse(struct hdhomerun_sock_t *sock)
 	setsockopt(sock->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&sock_opt, sizeof(sock_opt));
 }
 
+void hdhomerun_sock_set_ipv4_onesbcast(struct hdhomerun_sock_t *sock, int v)
+{
+#if defined(IP_ONESBCAST)
+	setsockopt(sock->sock, IPPROTO_IP, IP_ONESBCAST, (char *)&v, sizeof(v));
+#endif
+}
+
+void hdhomerun_sock_set_ipv6_multicast_ifindex(struct hdhomerun_sock_t *sock, uint32_t ifindex)
+{
+	setsockopt(sock->sock, IPPROTO_IPV6, IPV6_MULTICAST_IF, (char *)&ifindex, sizeof(ifindex));
+}
+
 int hdhomerun_sock_getlasterror(void)
 {
 	return errno;
 }
 
-uint32_t hdhomerun_sock_getsockname_addr(struct hdhomerun_sock_t *sock)
+bool hdhomerun_sock_getsockname_addr_ex(struct hdhomerun_sock_t *sock, struct sockaddr_storage *result)
 {
-	struct sockaddr_in sock_addr;
-	socklen_t sockaddr_size = sizeof(sock_addr);
-
-	if (getsockname(sock->sock, (struct sockaddr *)&sock_addr, &sockaddr_size) != 0) {
-		return 0;
-	}
-
-	return ntohl(sock_addr.sin_addr.s_addr);
+	socklen_t sockaddr_size = sizeof(struct sockaddr_storage);
+	return (getsockname(sock->sock, (struct sockaddr *)result, &sockaddr_size) == 0);
 }
 
 uint16_t hdhomerun_sock_getsockname_port(struct hdhomerun_sock_t *sock)
 {
-	struct sockaddr_in sock_addr;
+	struct sockaddr_storage sock_addr;
 	socklen_t sockaddr_size = sizeof(sock_addr);
 
 	if (getsockname(sock->sock, (struct sockaddr *)&sock_addr, &sockaddr_size) != 0) {
 		return 0;
 	}
 
-	return ntohs(sock_addr.sin_port);
+	if (sock_addr.ss_family == AF_INET) {
+		struct sockaddr_in *sock_addr_in = (struct sockaddr_in *)&sock_addr;
+		return ntohs(sock_addr_in->sin_port);
+	}
+	if (sock_addr.ss_family == AF_INET6) {
+		struct sockaddr_in6 *sock_addr_in = (struct sockaddr_in6 *)&sock_addr;
+		return ntohs(sock_addr_in->sin6_port);
+	}
+	return 0;
 }
 
-uint32_t hdhomerun_sock_getpeername_addr(struct hdhomerun_sock_t *sock)
+bool hdhomerun_sock_getpeername_addr_ex(struct hdhomerun_sock_t *sock, struct sockaddr_storage *result)
 {
-	struct sockaddr_in sock_addr;
-	socklen_t sockaddr_size = sizeof(sock_addr);
+	socklen_t sockaddr_size = sizeof(struct sockaddr_storage);
+	return (getpeername(sock->sock, (struct sockaddr *)result, &sockaddr_size) == 0);
+}
 
-	if (getpeername(sock->sock, (struct sockaddr *)&sock_addr, &sockaddr_size) != 0) {
-		return 0;
+bool hdhomerun_sock_join_multicast_group_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr)
+{
+	if (multicast_addr->sa_family == AF_INET6) {
+		const struct sockaddr_in6 *multicast_addr_in = (const struct sockaddr_in6 *)multicast_addr;
+
+		struct ipv6_mreq imr;
+		memset(&imr, 0, sizeof(imr));
+		memcpy(imr.ipv6mr_multiaddr.s6_addr, multicast_addr_in->sin6_addr.s6_addr, 16);
+		imr.ipv6mr_interface = multicast_addr_in->sin6_scope_id;
+
+		if (setsockopt(sock->sock, IPPROTO_IPV6, IPV6_JOIN_GROUP, (const char *)&imr, sizeof(imr)) != 0) {
+			return false;
+		}
+
+		return true;
 	}
 
-	return ntohl(sock_addr.sin_addr.s_addr);
-}
+	if (multicast_addr->sa_family == AF_INET) {
+		const struct sockaddr_in *multicast_addr_in = (const struct sockaddr_in *)multicast_addr;
+		const struct sockaddr_in *local_addr_in = (const struct sockaddr_in *)local_addr;
 
-uint32_t hdhomerun_sock_getaddrinfo_addr(struct hdhomerun_sock_t *sock, const char *name)
-{
-	struct addrinfo hints;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
+		struct ip_mreq imr;
+		memset(&imr, 0, sizeof(imr));
+		imr.imr_multiaddr.s_addr = multicast_addr_in->sin_addr.s_addr;
+		imr.imr_interface.s_addr = (local_addr->sa_family == AF_INET) ? local_addr_in->sin_addr.s_addr : 0;
 
-	struct addrinfo *sock_info;
-	if (getaddrinfo(name, NULL, &hints, &sock_info) != 0) {
-		return 0;
+		if (setsockopt(sock->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
+			return false;
+		}
+
+		return true;
 	}
 
-	struct sockaddr_in *sock_addr = (struct sockaddr_in *)sock_info->ai_addr;
-	uint32_t addr = ntohl(sock_addr->sin_addr.s_addr);
-
-	freeaddrinfo(sock_info);
-	return addr;
+	return false;
 }
 
-bool hdhomerun_sock_join_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
+bool hdhomerun_sock_leave_multicast_group_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr)
 {
-	struct ip_mreq imr;
-	memset(&imr, 0, sizeof(imr));
-	imr.imr_multiaddr.s_addr  = htonl(multicast_ip);
-	imr.imr_interface.s_addr  = htonl(local_ip);
+	if (multicast_addr->sa_family == AF_INET6) {
+		const struct sockaddr_in6 *multicast_addr_in = (const struct sockaddr_in6 *)multicast_addr;
 
-	if (setsockopt(sock->sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
+		struct ipv6_mreq imr;
+		memset(&imr, 0, sizeof(imr));
+		memcpy(imr.ipv6mr_multiaddr.s6_addr, multicast_addr_in->sin6_addr.s6_addr, 16);
+		imr.ipv6mr_interface = multicast_addr_in->sin6_scope_id;
+
+		if (setsockopt(sock->sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (const char *)&imr, sizeof(imr)) != 0) {
+			return false;
+		}
+
+		return true;
+	}
+
+	if (multicast_addr->sa_family == AF_INET) {
+		const struct sockaddr_in *multicast_addr_in = (const struct sockaddr_in *)multicast_addr;
+		const struct sockaddr_in *local_addr_in = (const struct sockaddr_in *)local_addr;
+
+		struct ip_mreq imr;
+		memset(&imr, 0, sizeof(imr));
+		imr.imr_multiaddr.s_addr = multicast_addr_in->sin_addr.s_addr;
+		imr.imr_interface.s_addr = (local_addr->sa_family == AF_INET) ? local_addr_in->sin_addr.s_addr : 0;
+
+		if (setsockopt(sock->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
+			return false;
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
+bool hdhomerun_sock_bind_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *local_addr, bool allow_reuse)
+{
+	socklen_t local_addr_size;
+	switch (local_addr->sa_family) {
+	case AF_INET6:
+		local_addr_size = (socklen_t)sizeof(struct sockaddr_in6);
+		break;
+	case AF_INET:
+		local_addr_size = (socklen_t)sizeof(struct sockaddr_in);
+		break;
+	default:
 		return false;
 	}
 
-	return true;
-}
-
-bool hdhomerun_sock_leave_multicast_group(struct hdhomerun_sock_t *sock, uint32_t multicast_ip, uint32_t local_ip)
-{
-	struct ip_mreq imr;
-	memset(&imr, 0, sizeof(imr));
-	imr.imr_multiaddr.s_addr  = htonl(multicast_ip);
-	imr.imr_interface.s_addr  = htonl(local_ip);
-
-	if (setsockopt(sock->sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char *)&imr, sizeof(imr)) != 0) {
-		return false;
-	}
-
-	return true;
-}
-
-bool hdhomerun_sock_bind(struct hdhomerun_sock_t *sock, uint32_t local_addr, uint16_t local_port, bool allow_reuse)
-{
 	int sock_opt = allow_reuse;
 	setsockopt(sock->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&sock_opt, sizeof(sock_opt));
 
-	struct sockaddr_in sock_addr;
-	memset(&sock_addr, 0, sizeof(sock_addr));
-	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = htonl(local_addr);
-	sock_addr.sin_port = htons(local_port);
-
-	if (bind(sock->sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) != 0) {
+	if (bind(sock->sock, (const struct sockaddr *)local_addr, local_addr_size) != 0) {
 		return false;
 	}
 
 	return true;
 }
 
-bool hdhomerun_sock_connect(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, uint64_t timeout)
+bool hdhomerun_sock_connect_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *remote_addr, uint64_t timeout)
 {
-	struct sockaddr_in sock_addr;
-	memset(&sock_addr, 0, sizeof(sock_addr));
-	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = htonl(remote_addr);
-	sock_addr.sin_port = htons(remote_port);
+	socklen_t remote_addr_size;
+	switch (remote_addr->sa_family) {
+	case AF_INET6:
+		remote_addr_size = (socklen_t)sizeof(struct sockaddr_in6);
+		break;
+	case AF_INET:
+		remote_addr_size = (socklen_t)sizeof(struct sockaddr_in);
+		break;
+	default:
+		return false;
+	}
 
-	if (connect(sock->sock, (struct sockaddr *)&sock_addr, sizeof(sock_addr)) != 0) {
+	if (connect(sock->sock, remote_addr, remote_addr_size) != 0) {
 		if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINPROGRESS)) {
 			return false;
 		}
@@ -437,16 +350,22 @@ bool hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t
 	}
 }
 
-bool hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, uint16_t remote_port, const void *data, size_t length, uint64_t timeout)
+bool hdhomerun_sock_sendto_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *remote_addr, const void *data, size_t length, uint64_t timeout)
 {
-	struct sockaddr_in sock_addr;
-	memset(&sock_addr, 0, sizeof(sock_addr));
-	sock_addr.sin_family = AF_INET;
-	sock_addr.sin_addr.s_addr = htonl(remote_addr);
-	sock_addr.sin_port = htons(remote_port);
+	socklen_t remote_addr_size;
+	switch (remote_addr->sa_family) {
+	case AF_INET6:
+		remote_addr_size = (socklen_t)sizeof(struct sockaddr_in6);
+		break;
+	case AF_INET:
+		remote_addr_size = (socklen_t)sizeof(struct sockaddr_in);
+		break;
+	default:
+		return false;
+	}
 
 	const uint8_t *ptr = (const uint8_t *)data;
-	ssize_t ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+	ssize_t ret = sendto(sock->sock, ptr, length, 0, remote_addr, remote_addr_size);
 	if (ret >= (ssize_t)length) {
 		return true;
 	}
@@ -476,7 +395,7 @@ bool hdhomerun_sock_sendto(struct hdhomerun_sock_t *sock, uint32_t remote_addr, 
 			return false;
 		}
 
-		ret = sendto(sock->sock, ptr, length, 0, (struct sockaddr *)&sock_addr, sizeof(sock_addr));
+		ret = sendto(sock->sock, ptr, length, 0, remote_addr, remote_addr_size);
 		if (ret >= (ssize_t)length) {
 			return true;
 		}
@@ -536,16 +455,11 @@ bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *leng
 	return false;
 }
 
-bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_addr, uint16_t *remote_port, void *data, size_t *length, uint64_t timeout)
+bool hdhomerun_sock_recvfrom_ex(struct hdhomerun_sock_t *sock, struct sockaddr_storage *remote_addr, void *data, size_t *length, uint64_t timeout)
 {
-	struct sockaddr_in sock_addr;
-	memset(&sock_addr, 0, sizeof(sock_addr));
-	socklen_t sockaddr_size = sizeof(sock_addr);
-
-	ssize_t ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)&sock_addr, &sockaddr_size);
+	socklen_t sockaddr_size = sizeof(struct sockaddr_storage);
+	ssize_t ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)remote_addr, &sockaddr_size);
 	if (ret > 0) {
-		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
-		*remote_port = ntohs(sock_addr.sin_port);
 		*length = (size_t)ret;
 		return true;
 	}
@@ -570,10 +484,8 @@ bool hdhomerun_sock_recvfrom(struct hdhomerun_sock_t *sock, uint32_t *remote_add
 		return false;
 	}
 
-	ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)&sock_addr, &sockaddr_size);
+	ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)remote_addr, &sockaddr_size);
 	if (ret > 0) {
-		*remote_addr = ntohl(sock_addr.sin_addr.s_addr);
-		*remote_port = ntohs(sock_addr.sin_port);
 		*length = (size_t)ret;
 		return true;
 	}

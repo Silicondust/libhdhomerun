@@ -1,7 +1,7 @@
 /*
  * hdhomerun_video.c
  *
- * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -26,8 +26,7 @@ struct hdhomerun_video_sock_t {
 	struct hdhomerun_sock_t *sock;
 
 	uint32_t keepalive_lockkey;
-	uint32_t keepalive_addr;
-	uint16_t keepalive_port;
+	struct sockaddr_storage keepalive_addr;
 	volatile bool keepalive_start;
 
 	volatile size_t head;
@@ -52,6 +51,16 @@ struct hdhomerun_video_sock_t {
 static void hdhomerun_video_thread_execute(void *arg);
 
 struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg)
+{
+	struct sockaddr_in listen_addr_in;
+	memset(&listen_addr_in, 0, sizeof(listen_addr_in));
+	listen_addr_in.sin_family = AF_INET;
+	listen_addr_in.sin_port = htons(listen_port);
+
+	return hdhomerun_video_create_ex((const struct sockaddr *)&listen_addr_in, allow_port_reuse, buffer_size, dbg);
+}
+
+struct hdhomerun_video_sock_t *hdhomerun_video_create_ex(const struct sockaddr *listen_addr, bool allow_port_reuse, size_t buffer_size, struct hdhomerun_debug_t *dbg)
 {
 	/* Create object. */
 	struct hdhomerun_video_sock_t *vs = (struct hdhomerun_video_sock_t *)calloc(1, sizeof(struct hdhomerun_video_sock_t));
@@ -82,7 +91,7 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	}
 	
 	/* Create socket. */
-	vs->sock = hdhomerun_sock_create_udp();
+	vs->sock = hdhomerun_sock_create_udp_ex(listen_addr->sa_family);
 	if (!vs->sock) {
 		hdhomerun_debug_printf(dbg, "hdhomerun_video_create: failed to allocate socket\n");
 		goto error;
@@ -92,8 +101,8 @@ struct hdhomerun_video_sock_t *hdhomerun_video_create(uint16_t listen_port, bool
 	hdhomerun_sock_set_recv_buffer_size(vs->sock, 1024 * 1024);
 
 	/* Bind socket. */
-	if (!hdhomerun_sock_bind(vs->sock, INADDR_ANY, listen_port, allow_port_reuse)) {
-		hdhomerun_debug_printf(dbg, "hdhomerun_video_create: failed to bind socket (port %u)\n", listen_port);
+	if (!hdhomerun_sock_bind_ex(vs->sock, listen_addr, allow_port_reuse)) {
+		hdhomerun_debug_printf(dbg, "hdhomerun_video_create: failed to bind socket\n");
 		goto error;
 	}
 
@@ -135,13 +144,35 @@ void hdhomerun_video_destroy(struct hdhomerun_video_sock_t *vs)
 
 void hdhomerun_video_set_keepalive(struct hdhomerun_video_sock_t *vs, uint32_t remote_addr, uint16_t remote_port, uint32_t lockkey)
 {
+	if ((remote_addr == 0) || (remote_port == 0)) {
+		hdhomerun_video_set_keepalive_ex(vs, NULL, lockkey);
+		return;
+	}
+
+	struct sockaddr_in remote_addr_in;
+	memset(&remote_addr_in, 0, sizeof(remote_addr_in));
+	remote_addr_in.sin_family = AF_INET;
+	remote_addr_in.sin_addr.s_addr = htonl(remote_addr);
+	remote_addr_in.sin_port = htons(remote_port);
+
+	hdhomerun_video_set_keepalive_ex(vs, (struct sockaddr *)&remote_addr_in, lockkey);
+}
+
+void hdhomerun_video_set_keepalive_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *remote_addr, uint32_t lockkey)
+{
 	thread_mutex_lock(&vs->lock);
 
-	vs->keepalive_addr = remote_addr;
-	vs->keepalive_port = remote_port;
+	memset(&vs->keepalive_addr, 0, sizeof(vs->keepalive_addr));
+	if (remote_addr && (remote_addr->sa_family == AF_INET6)) {
+		memcpy(&vs->keepalive_addr, remote_addr, sizeof(struct sockaddr_in6));
+	}
+	if (remote_addr && (remote_addr->sa_family == AF_INET)) {
+		memcpy(&vs->keepalive_addr, remote_addr, sizeof(struct sockaddr_in));
+	}
+
 	vs->keepalive_lockkey = lockkey;
 
-	if ((remote_addr != 0) && (remote_port != 0)) {
+	if (vs->keepalive_addr.ss_family) {
 		vs->keepalive_start = true;
 	}
 
@@ -166,7 +197,22 @@ uint16_t hdhomerun_video_get_local_port(struct hdhomerun_video_sock_t *vs)
 
 int hdhomerun_video_join_multicast_group(struct hdhomerun_video_sock_t *vs, uint32_t multicast_ip, uint32_t local_ip)
 {
-	if (!hdhomerun_sock_join_multicast_group(vs->sock, multicast_ip, local_ip)) {
+	struct sockaddr_in multicast_addr;
+	memset(&multicast_addr, 0, sizeof(multicast_addr));
+	multicast_addr.sin_family = AF_INET;
+	multicast_addr.sin_addr.s_addr = htonl(multicast_ip);
+
+	struct sockaddr_in local_addr;
+	memset(&local_addr, 0, sizeof(local_addr));
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_addr.s_addr = htonl(local_ip);
+
+	return hdhomerun_video_join_multicast_group_ex(vs, (struct sockaddr *)&multicast_addr, (struct sockaddr *)&local_addr);
+}
+
+int hdhomerun_video_join_multicast_group_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr)
+{
+	if (!hdhomerun_sock_join_multicast_group_ex(vs->sock, multicast_addr, local_addr)) {
 		hdhomerun_debug_printf(vs->dbg, "hdhomerun_video_join_multicast_group: setsockopt failed (%d)\n", hdhomerun_sock_getlasterror());
 		return -1;
 	}
@@ -176,7 +222,22 @@ int hdhomerun_video_join_multicast_group(struct hdhomerun_video_sock_t *vs, uint
 
 void hdhomerun_video_leave_multicast_group(struct hdhomerun_video_sock_t *vs, uint32_t multicast_ip, uint32_t local_ip)
 {
-	if (!hdhomerun_sock_leave_multicast_group(vs->sock, multicast_ip, local_ip)) {
+	struct sockaddr_in multicast_addr;
+	memset(&multicast_addr, 0, sizeof(multicast_addr));
+	multicast_addr.sin_family = AF_INET;
+	multicast_addr.sin_addr.s_addr = htonl(multicast_ip);
+
+	struct sockaddr_in local_addr;
+	memset(&local_addr, 0, sizeof(local_addr));
+	local_addr.sin_family = AF_INET;
+	local_addr.sin_addr.s_addr = htonl(local_ip);
+
+	hdhomerun_video_leave_multicast_group_ex(vs, (struct sockaddr *)&multicast_addr, (struct sockaddr *)&local_addr);
+}
+
+void hdhomerun_video_leave_multicast_group_ex(struct hdhomerun_video_sock_t *vs, const struct sockaddr *multicast_addr, const struct sockaddr *local_addr)
+{
+	if (!hdhomerun_sock_leave_multicast_group_ex(vs->sock, multicast_addr, local_addr)) {
 		hdhomerun_debug_printf(vs->dbg, "hdhomerun_video_leave_multicast_group: setsockopt failed (%d)\n", hdhomerun_sock_getlasterror());
 	}
 }
@@ -251,19 +312,19 @@ static void hdhomerun_video_thread_send_keepalive(struct hdhomerun_video_sock_t 
 {
 	thread_mutex_lock(&vs->lock);
 	uint32_t keepalive_lockkey = vs->keepalive_lockkey;
-	uint32_t keepalive_addr = vs->keepalive_addr;
-	uint16_t keepalive_port = vs->keepalive_port;
+	struct sockaddr_storage keepalive_addr;
+	keepalive_addr = vs->keepalive_addr;
 	vs->keepalive_start = false;
 	thread_mutex_unlock(&vs->lock);
 
-	if ((keepalive_addr == 0) || (keepalive_port == 0)) {
+	if (keepalive_addr.ss_family == 0) {
 		return;
 	}
 
 	struct hdhomerun_pkt_t pkt;
 	hdhomerun_pkt_reset(&pkt);
 	hdhomerun_pkt_write_u32(&pkt, keepalive_lockkey);
-	hdhomerun_sock_sendto(vs->sock, keepalive_addr, keepalive_port, pkt.start, pkt.end - pkt.start, 25);
+	hdhomerun_sock_sendto_ex(vs->sock, (struct sockaddr *)&keepalive_addr, pkt.start, pkt.end - pkt.start, 25);
 }
 
 static void hdhomerun_video_thread_execute(void *arg)

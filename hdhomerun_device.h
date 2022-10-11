@@ -1,7 +1,7 @@
 /*
  * hdhomerun_device.h
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -64,7 +64,9 @@ extern "C" {
  *     /tuner<tuner index>
  */
 extern LIBHDHOMERUN_API struct hdhomerun_device_t *hdhomerun_device_create(uint32_t device_id, uint32_t device_ip, unsigned int tuner, struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API struct hdhomerun_device_t *hdhomerun_device_create_ex(uint32_t device_id, const struct sockaddr *device_addr, unsigned int tuner, struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API struct hdhomerun_device_t *hdhomerun_device_create_multicast(uint32_t multicast_ip, uint16_t multicast_port, struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API struct hdhomerun_device_t *hdhomerun_device_create_multicast_ex(const struct sockaddr *multicast_addr, struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API struct hdhomerun_device_t *hdhomerun_device_create_from_str(const char *device_str, struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API void hdhomerun_device_destroy(struct hdhomerun_device_t *hd);
 
@@ -74,12 +76,16 @@ extern LIBHDHOMERUN_API void hdhomerun_device_destroy(struct hdhomerun_device_t 
 extern LIBHDHOMERUN_API const char *hdhomerun_device_get_name(struct hdhomerun_device_t *hd);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_device_id(struct hdhomerun_device_t *hd);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_device_ip(struct hdhomerun_device_t *hd);
+extern LIBHDHOMERUN_API bool hdhomerun_device_get_device_addr(struct hdhomerun_device_t *hd, struct sockaddr_storage *result);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_device_id_requested(struct hdhomerun_device_t *hd);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_device_ip_requested(struct hdhomerun_device_t *hd);
+extern LIBHDHOMERUN_API bool hdhomerun_device_get_device_addr_requested(struct hdhomerun_device_t *hd, struct sockaddr_storage *result);
 extern LIBHDHOMERUN_API unsigned int hdhomerun_device_get_tuner(struct hdhomerun_device_t *hd);
 
 extern LIBHDHOMERUN_API int hdhomerun_device_set_device(struct hdhomerun_device_t *hd, uint32_t device_id, uint32_t device_ip);
+extern LIBHDHOMERUN_API int hdhomerun_device_set_device_ex(struct hdhomerun_device_t *hd, uint32_t device_id, const struct sockaddr *device_addr);
 extern LIBHDHOMERUN_API int hdhomerun_device_set_multicast(struct hdhomerun_device_t *hd, uint32_t multicast_ip, uint16_t multicast_port);
+extern LIBHDHOMERUN_API int hdhomerun_device_set_multicast_ex(struct hdhomerun_device_t *hd, const struct sockaddr *multicast_addr);
 extern LIBHDHOMERUN_API int hdhomerun_device_set_tuner(struct hdhomerun_device_t *hd, unsigned int tuner);
 extern LIBHDHOMERUN_API int hdhomerun_device_set_tuner_from_str(struct hdhomerun_device_t *hd, const char *tuner_str);
 
@@ -91,6 +97,7 @@ extern LIBHDHOMERUN_API int hdhomerun_device_set_tuner_from_str(struct hdhomerun
  * Returns 32-bit IP address with native endianness, or 0 on error.
  */
 extern LIBHDHOMERUN_API uint32_t hdhomerun_device_get_local_machine_addr(struct hdhomerun_device_t *hd);
+extern LIBHDHOMERUN_API bool hdhomerun_device_get_local_machine_addr_ex(struct hdhomerun_device_t *hd, struct sockaddr_storage *result);
 
 /*
  * Get operations.

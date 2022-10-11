@@ -1,7 +1,7 @@
 /*
  * hdhomerun_control.c
  *
- * Copyright © 2006-2016 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,9 +27,9 @@
 
 struct hdhomerun_control_sock_t {
 	uint32_t desired_device_id;
-	uint32_t desired_device_ip;
 	uint32_t actual_device_id;
-	uint32_t actual_device_ip;
+	struct sockaddr_storage desired_device_addr;
+	struct sockaddr_storage actual_device_addr;
 	struct hdhomerun_sock_t *sock;
 	struct hdhomerun_debug_t *dbg;
 	struct hdhomerun_pkt_t tx_pkt;
@@ -48,15 +48,35 @@ static void hdhomerun_control_close_sock(struct hdhomerun_control_sock_t *cs)
 
 void hdhomerun_control_set_device(struct hdhomerun_control_sock_t *cs, uint32_t device_id, uint32_t device_ip)
 {
+	struct sockaddr_in device_addr;
+	memset(&device_addr, 0, sizeof(device_addr));
+	device_addr.sin_family = AF_INET;
+	device_addr.sin_addr.s_addr = htonl(device_ip);
+
+	hdhomerun_control_set_device_ex(cs, device_id, (const struct sockaddr *)&device_addr);
+}
+
+void hdhomerun_control_set_device_ex(struct hdhomerun_control_sock_t *cs, uint32_t device_id, const struct sockaddr *device_addr)
+{
 	hdhomerun_control_close_sock(cs);
 
 	cs->desired_device_id = device_id;
-	cs->desired_device_ip = device_ip;
 	cs->actual_device_id = 0;
-	cs->actual_device_ip = 0;
+	hdhomerun_sock_sockaddr_copy(&cs->desired_device_addr, device_addr);
+	memset(&cs->actual_device_addr, 0, sizeof(cs->actual_device_addr));
 }
 
 struct hdhomerun_control_sock_t *hdhomerun_control_create(uint32_t device_id, uint32_t device_ip, struct hdhomerun_debug_t *dbg)
+{
+	struct sockaddr_in device_addr;
+	memset(&device_addr, 0, sizeof(device_addr));
+	device_addr.sin_family = AF_INET;
+	device_addr.sin_addr.s_addr = htonl(device_ip);
+
+	return hdhomerun_control_create_ex(device_id, (const struct sockaddr *)&device_addr, dbg);
+}
+
+struct hdhomerun_control_sock_t *hdhomerun_control_create_ex(uint32_t device_id, const struct sockaddr *device_addr, struct hdhomerun_debug_t *dbg)
 {
 	struct hdhomerun_control_sock_t *cs = (struct hdhomerun_control_sock_t *)calloc(1, sizeof(struct hdhomerun_control_sock_t));
 	if (!cs) {
@@ -65,7 +85,7 @@ struct hdhomerun_control_sock_t *hdhomerun_control_create(uint32_t device_id, ui
 	}
 
 	cs->dbg = dbg;
-	hdhomerun_control_set_device(cs, device_id, device_ip);
+	hdhomerun_control_set_device_ex(cs, device_id, device_addr);
 
 	return cs;
 }
@@ -76,39 +96,82 @@ void hdhomerun_control_destroy(struct hdhomerun_control_sock_t *cs)
 	free(cs);
 }
 
+static bool hdhomerun_control_connect_sock_discover(struct hdhomerun_control_sock_t *cs)
+{
+	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(NULL);
+	if (!ds) {
+		return false;
+	}
+
+	uint32_t device_types[1];
+	device_types[0] = HDHOMERUN_DEVICE_TYPE_WILDCARD;
+
+	uint32_t device_id = cs->desired_device_id;
+	if (device_id == 0) {
+		device_id = HDHOMERUN_DEVICE_ID_WILDCARD;
+	}
+
+	int ret;
+	if (hdhomerun_sock_sockaddr_is_addr((struct sockaddr *)&cs->desired_device_addr)) {
+		if (device_id == HDHOMERUN_DEVICE_ID_WILDCARD) {
+			ret = hdhomerun_discover2_find_devices_targeted(ds, (struct sockaddr *)&cs->desired_device_addr, device_types, 1);
+		} else {
+			ret = hdhomerun_discover2_find_device_id_targeted(ds, (struct sockaddr *)&cs->desired_device_addr, device_id);
+		}
+	} else {
+		uint32_t flags = HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL;
+		if (device_id == HDHOMERUN_DEVICE_ID_WILDCARD) {
+			ret = hdhomerun_discover2_find_devices_broadcast(ds, flags, device_types, 1);
+		} else {
+			ret = hdhomerun_discover2_find_device_id_broadcast(ds, flags, device_id);
+		}
+	}
+	if (ret <= 0) {
+		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: device not found\n");
+		hdhomerun_discover_destroy(ds);
+		return false;
+	}
+
+	struct hdhomerun_discover2_device_t *device = hdhomerun_discover2_iter_device_first(ds);
+	cs->actual_device_id = hdhomerun_discover2_device_get_device_id(device);
+
+	struct hdhomerun_discover2_device_if_t *device_if = hdhomerun_discover2_iter_device_if_first(device);
+	hdhomerun_discover2_device_if_get_ip_addr(device_if, &cs->actual_device_addr);
+
+	hdhomerun_discover_destroy(ds);
+	return true;
+}
+
 static bool hdhomerun_control_connect_sock(struct hdhomerun_control_sock_t *cs)
 {
 	if (cs->sock) {
 		return true;
 	}
 
-	if ((cs->desired_device_id == 0) && (cs->desired_device_ip == 0)) {
+	if ((cs->desired_device_id == 0) && !hdhomerun_sock_sockaddr_is_addr((struct sockaddr *)&cs->desired_device_addr)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: no device specified\n");
 		return false;
 	}
-	if (hdhomerun_discover_is_ip_multicast(cs->desired_device_ip)) {
+	if (hdhomerun_discover_is_ip_multicast_ex((struct sockaddr *)&cs->desired_device_addr)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: cannot use multicast ip address for device operations\n");
 		return false;
 	}
 
 	/* Find device. */
-	struct hdhomerun_discover_device_t result;
-	if (hdhomerun_discover_find_devices_custom_v2(cs->desired_device_ip, HDHOMERUN_DEVICE_TYPE_WILDCARD, cs->desired_device_id, &result, 1) <= 0) {
-		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: device not found\n");
+	if (!hdhomerun_control_connect_sock_discover(cs)) {
 		return false;
 	}
-	cs->actual_device_ip = result.ip_addr;
-	cs->actual_device_id = result.device_id;
 
 	/* Create socket. */
-	cs->sock = hdhomerun_sock_create_tcp();
+	cs->sock = hdhomerun_sock_create_tcp_ex(cs->actual_device_addr.ss_family);
 	if (!cs->sock) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: failed to create socket (%d)\n", hdhomerun_sock_getlasterror());
 		return false;
 	}
 
 	/* Initiate connection. */
-	if (!hdhomerun_sock_connect(cs->sock, cs->actual_device_ip, HDHOMERUN_CONTROL_TCP_PORT, HDHOMERUN_CONTROL_CONNECT_TIMEOUT)) {
+	hdhomerun_sock_sockaddr_set_port((struct sockaddr *)&cs->actual_device_addr, HDHOMERUN_CONTROL_TCP_PORT);
+	if (!hdhomerun_sock_connect_ex(cs->sock, (struct sockaddr *)&cs->actual_device_addr, HDHOMERUN_CONTROL_CONNECT_TIMEOUT)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: failed to connect (%d)\n", hdhomerun_sock_getlasterror());
 		hdhomerun_control_close_sock(cs);
 		return false;
@@ -135,7 +198,24 @@ uint32_t hdhomerun_control_get_device_ip(struct hdhomerun_control_sock_t *cs)
 		return 0;
 	}
 
-	return cs->actual_device_ip;
+	if (cs->actual_device_addr.ss_family != AF_INET) {
+		return 0;
+	}
+
+	struct sockaddr_in *actual_device_addr_in = (struct sockaddr_in *)&cs->actual_device_addr;
+	return ntohl(actual_device_addr_in->sin_addr.s_addr);
+}
+
+bool hdhomerun_control_get_device_addr(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result)
+{
+	if (!hdhomerun_control_connect_sock(cs)) {
+		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_get_device_ip: connect failed\n");
+		memset(result, 0, sizeof(struct sockaddr_storage));
+		return false;
+	}
+
+	*result = cs->actual_device_addr;
+	return hdhomerun_sock_sockaddr_is_addr((struct sockaddr *)result);
 }
 
 uint32_t hdhomerun_control_get_device_id_requested(struct hdhomerun_control_sock_t *cs)
@@ -145,23 +225,47 @@ uint32_t hdhomerun_control_get_device_id_requested(struct hdhomerun_control_sock
 
 uint32_t hdhomerun_control_get_device_ip_requested(struct hdhomerun_control_sock_t *cs)
 {
-	return cs->desired_device_ip;
+	if (cs->desired_device_addr.ss_family != AF_INET) {
+		return 0;
+	}
+
+	struct sockaddr_in *desired_device_addr_in = (struct sockaddr_in *)&cs->desired_device_addr;
+	return ntohl(desired_device_addr_in->sin_addr.s_addr);
+}
+
+bool hdhomerun_control_get_device_addr_requested(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result)
+{
+	*result = cs->desired_device_addr;
+	return hdhomerun_sock_sockaddr_is_addr((struct sockaddr *)result);
 }
 
 uint32_t hdhomerun_control_get_local_addr(struct hdhomerun_control_sock_t *cs)
 {
+	struct sockaddr_storage local_addr;
+	if (!hdhomerun_control_get_local_addr_ex(cs, &local_addr)) {
+		return 0;
+	}
+	if (local_addr.ss_family != AF_INET) {
+		return 0;
+	}
+
+	struct sockaddr_in *local_addr_in = (struct sockaddr_in *)&local_addr;
+	return ntohl(local_addr_in->sin_addr.s_addr);
+}
+
+bool hdhomerun_control_get_local_addr_ex(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result)
+{
 	if (!hdhomerun_control_connect_sock(cs)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_get_local_addr: connect failed\n");
-		return 0;
+		return false;
 	}
 
-	uint32_t addr = hdhomerun_sock_getsockname_addr(cs->sock);
-	if (addr == 0) {
+	if (!hdhomerun_sock_getsockname_addr_ex(cs->sock, result)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_get_local_addr: getsockname failed (%d)\n", hdhomerun_sock_getlasterror());
-		return 0;
+		return false;
 	}
 
-	return addr;
+	return true;
 }
 
 static bool hdhomerun_control_send_sock(struct hdhomerun_control_sock_t *cs, struct hdhomerun_pkt_t *tx_pkt)
