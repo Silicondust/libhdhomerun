@@ -86,6 +86,11 @@ static void hdhomerun_local_ip_info2_newaddr(int af_sock, struct nlmsghdr *hdr, 
 			local_ip.sin_family = AF_INET;
 			memcpy(&local_ip.sin_addr.s_addr, RTA_DATA(rta), 4);
 
+			if (!hdhomerun_sock_sockaddr_is_addr((const struct sockaddr *)&local_ip)) {
+				rta = RTA_NEXT(rta, ifa_payload_length);
+				continue;
+			}
+
 			callback(callback_arg, ifindex, (const struct sockaddr *)&local_ip, cidr);
 		}
 
@@ -95,6 +100,11 @@ static void hdhomerun_local_ip_info2_newaddr(int af_sock, struct nlmsghdr *hdr, 
 
 			local_ip.sin6_family = AF_INET6;
 			memcpy(local_ip.sin6_addr.s6_addr, RTA_DATA(rta), 16);
+
+			if (!hdhomerun_sock_sockaddr_is_addr((const struct sockaddr *)&local_ip)) {
+				rta = RTA_NEXT(rta, ifa_payload_length);
+				continue;
+			}
 
 			if ((local_ip.sin6_addr.s6_addr[0] == 0xFE) && ((local_ip.sin6_addr.s6_addr[1] & 0xC0) == 0x80)) {
 				local_ip.sin6_scope_id = ifindex;

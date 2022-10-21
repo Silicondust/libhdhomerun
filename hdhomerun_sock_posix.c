@@ -26,6 +26,8 @@
 
 struct hdhomerun_sock_t {
 	int sock;
+	int af;
+	uint8_t ttl_set;
 };
 
 static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int af, int protocol)
@@ -34,6 +36,8 @@ static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int af, int proto
 	if (!sock) {
 		return NULL;
 	}
+
+	sock->af = af;
 
 	/* Create socket. */
 	sock->sock = socket(af, protocol, 0);
@@ -111,6 +115,23 @@ void hdhomerun_sock_set_allow_reuse(struct hdhomerun_sock_t *sock)
 {
 	int sock_opt = 1;
 	setsockopt(sock->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&sock_opt, sizeof(sock_opt));
+}
+
+void hdhomerun_sock_set_ttl(struct hdhomerun_sock_t *sock, uint8_t ttl)
+{
+	if (sock->ttl_set == ttl) {
+		return;
+	}
+
+	int sock_opt = (int)(unsigned int)ttl;
+	if (sock->af == AF_INET) {
+		setsockopt(sock->sock, IPPROTO_IP, IP_TTL, (char *)&sock_opt, sizeof(sock_opt));
+	}
+	if (sock->af == AF_INET6) {
+		setsockopt(sock->sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&sock_opt, sizeof(sock_opt));
+	}
+
+	sock->ttl_set = ttl;
 }
 
 void hdhomerun_sock_set_ipv4_onesbcast(struct hdhomerun_sock_t *sock, int v)

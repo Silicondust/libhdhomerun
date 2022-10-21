@@ -25,6 +25,8 @@ struct hdhomerun_sock_t {
 	SOCKET sock;
 	HANDLE event;
 	long events_selected;
+	int af;
+	uint8_t ttl_set;
 };
 
 bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callback, void *callback_arg)
@@ -59,6 +61,11 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 	IP_ADAPTER_ADDRESSES *adapter = adapter_addresses;
 
 	while (adapter) {
+		if (adapter->OperStatus != 1) {
+			adapter = adapter->Next;
+			continue;
+		}
+
 		if ((adapter->IfType != MIB_IF_TYPE_ETHERNET) && (adapter->IfType != IF_TYPE_IEEE80211)) {
 			adapter = adapter->Next;
 			continue;
@@ -73,12 +80,16 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 
 		IP_ADAPTER_UNICAST_ADDRESS *adapter_address = adapter->FirstUnicastAddress;
 		while (adapter_address) {
-			if (adapter_address->Flags & IP_ADAPTER_ADDRESS_TRANSIENT) {
+			struct sockaddr *local_ip = adapter_address->Address.lpSockaddr;
+			if (!hdhomerun_sock_sockaddr_is_addr(local_ip)) {
 				adapter_address = adapter_address->Next;
 				continue;
 			}
 
-			struct sockaddr *local_ip = adapter_address->Address.lpSockaddr;
+			if (adapter_address->Flags & IP_ADAPTER_ADDRESS_TRANSIENT) {
+				adapter_address = adapter_address->Next;
+				continue;
+			}
 
 			if ((local_ip->sa_family == AF_INET6) && (adapter_address->ValidLifetime != 0xFFFFFFFF)) {
 				adapter_address = adapter_address->Next;
@@ -104,6 +115,8 @@ static struct hdhomerun_sock_t *hdhomerun_sock_create_internal(int af, int proto
 	if (!sock) {
 		return NULL;
 	}
+
+	sock->af = af;
 
 	/* Create socket. */
 	sock->sock = socket(af, protocol, 0);
@@ -187,6 +200,23 @@ void hdhomerun_sock_set_allow_reuse(struct hdhomerun_sock_t *sock)
 {
 	int sock_opt = 1;
 	setsockopt(sock->sock, SOL_SOCKET, SO_REUSEADDR, (char *)&sock_opt, sizeof(sock_opt));
+}
+
+void hdhomerun_sock_set_ttl(struct hdhomerun_sock_t *sock, uint8_t ttl)
+{
+	if (sock->ttl_set == ttl) {
+		return;
+	}
+
+	int sock_opt = (int)(unsigned int)ttl;
+	if (sock->af == AF_INET) {
+		setsockopt(sock->sock, IPPROTO_IP, IP_TTL, (char *)&sock_opt, sizeof(sock_opt));
+	}
+	if (sock->af == AF_INET6) {
+		setsockopt(sock->sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&sock_opt, sizeof(sock_opt));
+	}
+
+	sock->ttl_set = ttl;
 }
 
 void hdhomerun_sock_set_ipv4_onesbcast(struct hdhomerun_sock_t *sock, int v)

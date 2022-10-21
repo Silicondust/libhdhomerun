@@ -89,9 +89,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		/* Local IP address. */
 		struct sockaddr_in ip_addr_in;
 		memcpy(&ip_addr_in, &ifr->ifr_addr, sizeof(ip_addr_in));
-
-		uint32_t ip_addr = ntohl(ip_addr_in.sin_addr.s_addr);
-		if (ip_addr == 0) {
+		if (!hdhomerun_sock_sockaddr_is_addr((const struct sockaddr *)&ip_addr_in)) {
 			continue;
 		}
 

@@ -130,7 +130,13 @@ static void hdhomerun_discover_sock_add_ipv6(void *arg, uint32_t ifindex, const 
 	detected_ip->sin6_port = htons(hdhomerun_discover_get_local_port(ds));
 
 	if (!hdhomerun_sock_bind_ex(dss->sock, (const struct sockaddr *)detected_ip, true)) {
-		hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip (%d)\n", hdhomerun_sock_getlasterror());
+		if (ds->dbg) {
+			int last_error = hdhomerun_sock_getlasterror();
+			char detected_ip_str[64];
+			hdhomerun_sock_sockaddr_to_ip_str(detected_ip_str, (const struct sockaddr *)detected_ip, true);
+			hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", detected_ip_str, last_error);
+		}
+
 		hdhomerun_discover_sock_free(dss);
 		return;
 	}
@@ -183,7 +189,13 @@ static void hdhomerun_discover_sock_add_ipv4(void *arg, uint32_t ifindex, const 
 	detected_ip->sin_port = htons(hdhomerun_discover_get_local_port(ds));
 
 	if (!hdhomerun_sock_bind_ex(dss->sock, (const struct sockaddr *)detected_ip, true)) {
-		hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip (%d)\n", hdhomerun_sock_getlasterror());
+		if (ds->dbg) {
+			int last_error = hdhomerun_sock_getlasterror();
+			char detected_ip_str[64];
+			hdhomerun_sock_sockaddr_to_ip_str(detected_ip_str, (const struct sockaddr *)detected_ip, true);
+			hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", detected_ip_str, last_error);
+		}
+
 		hdhomerun_discover_sock_free(dss);
 		return;
 	}
@@ -484,7 +496,7 @@ static inline bool hdhomerun_discover_is_ipv4_autoip(const struct sockaddr *ip_a
 
 	const struct sockaddr_in *sock_addr_in = (const struct sockaddr_in *)ip_addr;
 	uint8_t *addr_bytes = (uint8_t *)&sock_addr_in->sin_addr.s_addr;
-	return (addr_bytes[0] == 0xA9) && (addr_bytes[1] == 0xFE);
+	return (addr_bytes[0] == 169) && (addr_bytes[1] == 254);
 }
 
 static inline bool hdhomerun_discover_is_ipv6_localhost(const struct sockaddr *ip_addr)
@@ -496,8 +508,8 @@ static inline bool hdhomerun_discover_is_ipv6_localhost(const struct sockaddr *i
 	const struct sockaddr_in6 *sock_addr_in6 = (const struct sockaddr_in6 *)ip_addr;
 	uint8_t *addr_bytes = (uint8_t *)sock_addr_in6->sin6_addr.s6_addr;
 
-	static uint8_t hdhomerun_discover_ipv6_localhost[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
-	return (memcmp(addr_bytes, hdhomerun_discover_ipv6_localhost, 16) == 0);
+	static uint8_t hdhomerun_discover_ipv6_localhost_bytes[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	return (memcmp(addr_bytes, hdhomerun_discover_ipv6_localhost_bytes, 16) == 0);
 }
 
 static inline bool hdhomerun_discover_is_ipv6_routable(const struct sockaddr *ip_addr)
@@ -576,23 +588,38 @@ static void hdhomerun_discover_send_ipv4_targeted(struct hdhomerun_discover_t *d
 	memcpy(&target_addr_in, target_addr, sizeof(target_addr_in));
 	target_addr_in.sin_port = htons(HDHOMERUN_DISCOVER_UDP_PORT);
 
-	/* ipv4 autoip - send out every interface that has an autoip address */
-	if (hdhomerun_discover_is_ipv4_autoip(target_addr)) {
-		struct hdhomerun_discover_sock_t *dss = default_dss->next;
-		while (dss) {
-			if (!hdhomerun_discover_is_ipv4_autoip((const struct sockaddr *)&dss->local_ip)) {
-				dss = dss->next;
-				continue;
-			}
+	uint32_t target_ipv4 = ntohl(target_addr_in.sin_addr.s_addr);
+	bool local_subnet_send = false;
 
-			if (!hdhomerun_discover_send_request(ds, dss, (const struct sockaddr *)&target_addr_in, device_types, device_types_count, device_id)) {
-				dss = dss->next;
-				continue;
-			}
-
+	struct hdhomerun_discover_sock_t *dss = default_dss->next;
+	while (dss) {
+		if (dss->ipv4_subnet_mask == 0) {
 			dss = dss->next;
+			continue;
 		}
 
+		struct sockaddr_in *local_ip_in = (struct sockaddr_in *)&dss->local_ip;
+		uint32_t local_ipv4 = ntohl(local_ip_in->sin_addr.s_addr);
+
+		if ((target_ipv4 & dss->ipv4_subnet_mask) != (local_ipv4 & dss->ipv4_subnet_mask)) {
+			dss = dss->next;
+			continue;
+		}
+
+		if (!hdhomerun_discover_send_request(ds, dss, (const struct sockaddr *)&target_addr_in, device_types, device_types_count, device_id)) {
+			dss = dss->next;
+			continue;
+		}
+
+		local_subnet_send = true;
+		dss = dss->next;
+	}
+
+	if (local_subnet_send) {
+		return;
+	}
+
+	if (hdhomerun_discover_is_ipv4_autoip(target_addr)) {
 		return;
 	}
 
@@ -839,6 +866,60 @@ static void hdhomerun_discover_recv_internal_auth_bin(char **poutput, struct hdh
 	*poutput = str;
 }
 
+static void hdhomerun_discover_recv_fixup_tuner_count(struct hdhomerun_discover_t *ds, struct hdhomerun_discover2_device_t *device)
+{
+	if (!hdhomerun_discover2_device_is_type(device, HDHOMERUN_DEVICE_TYPE_TUNER)) {
+		return;
+	}
+
+	if (device->tuner_count > 0) {
+		return;
+	}
+
+	switch (device->device_id >> 20) {
+	case 0x102:
+		device->tuner_count = 1;
+		break;
+
+	case 0x100:
+	case 0x101:
+	case 0x121:
+		device->tuner_count = 2;
+		break;
+
+	default:
+		break;
+	}
+}
+
+static void hdhomerun_discover_recv_fixup_base_url(struct hdhomerun_discover_t *ds, struct hdhomerun_discover2_device_t *device)
+{
+	if (!hdhomerun_discover2_device_is_type(device, HDHOMERUN_DEVICE_TYPE_TUNER)) {
+		return;
+	}
+
+	struct hdhomerun_discover2_device_if_t *device_if = device->if_list;
+	if (device_if->base_url) {
+		return;
+	}
+
+	if (device_if->ip_addr.ss_family != AF_INET) {
+		return;
+	}
+
+	device_if->base_url = (char *)malloc(32);
+	if (!device_if->base_url) {
+		return;
+	}
+
+	struct sockaddr_in *sock_addr_in = (struct sockaddr_in *)&device_if->ip_addr;
+	uint32_t ip = ntohl(sock_addr_in->sin_addr.s_addr);
+
+	hdhomerun_sprintf(device_if->base_url, device_if->base_url + 32, "http://%u.%u.%u.%u:80",
+		(ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, (ip >> 0) & 0xFF
+	);
+}
+
 static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, struct hdhomerun_pkt_t *rx_pkt, struct hdhomerun_discover2_device_t *device)
 {
 	uint16_t type;
@@ -926,41 +1007,12 @@ static bool hdhomerun_discover_recv_internal(struct hdhomerun_discover_t *ds, st
 	/*
 	 * Fixup for old firmware.
 	 */
-	if (hdhomerun_discover2_device_is_type(device, HDHOMERUN_DEVICE_TYPE_TUNER)) {
-		if (device->tuner_count == 0) {
-			switch (device->device_id >> 20) {
-			case 0x102:
-				device->tuner_count = 1;
-				break;
+	hdhomerun_discover_recv_fixup_tuner_count(ds, device);
+	hdhomerun_discover_recv_fixup_base_url(ds, device);
 
-			case 0x100:
-			case 0x101:
-			case 0x121:
-				device->tuner_count = 2;
-				break;
-
-			default:
-				break;
-			}
-		}
-
-		if (!device_if->base_url && (device_if->ip_addr.ss_family == AF_INET)) {
-			char *str = (char *)malloc(32);
-			if (!str) {
-				return false;
-			}
-
-			struct sockaddr_in *sock_addr_in = (struct sockaddr_in *)&device_if->ip_addr;
-			uint32_t ip = ntohl(sock_addr_in->sin_addr.s_addr);
-
-			hdhomerun_sprintf(str, str + 32, "http://%u.%u.%u.%u:80",
-				(ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, (ip >> 0) & 0xFF
-			);
-
-			device_if->base_url = str;
-		}
-	}
-
+	/*
+	 * Success
+	 */
 	device_if->priority = hdhomerun_discover_compute_device_if_priority(device_if);
 	return true;
 }
@@ -1448,6 +1500,16 @@ bool hdhomerun_discover2_device_if_addr_is_ipv4(struct hdhomerun_discover2_devic
 bool hdhomerun_discover2_device_if_addr_is_ipv6_linklocal(struct hdhomerun_discover2_device_if_t *device_if)
 {
 	return hdhomerun_discover_is_ipv6_linklocal((const struct sockaddr *)&device_if->ip_addr);
+}
+
+uint32_t hdhomerun_discover2_device_if_get_ipv6_linklocal_scope_id(struct hdhomerun_discover2_device_if_t *device_if)
+{
+	if (!hdhomerun_discover_is_ipv6_linklocal((const struct sockaddr *)&device_if->ip_addr)) {
+		return 0;
+	}
+
+	const struct sockaddr_in6 *ip_addr_in6 = (const struct sockaddr_in6 *)&device_if->ip_addr;
+	return ip_addr_in6->sin6_scope_id;
 }
 
 void hdhomerun_discover2_device_if_get_ip_addr(struct hdhomerun_discover2_device_if_t *device_if, struct sockaddr_storage *ip_addr)

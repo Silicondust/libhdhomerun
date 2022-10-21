@@ -54,10 +54,10 @@ extern LIBHDHOMERUN_API void hdhomerun_discover_destroy(struct hdhomerun_discove
  * Results 0 when no devices are found.
  * Returns -1 on error.
  */
-extern LIBHDHOMERUN_API int hdhomerun_discover2_find_devices_targeted(struct hdhomerun_discover_t *ds, const struct sockaddr *target_addr, const uint32_t device_types[], size_t device_types_count);
 extern LIBHDHOMERUN_API int hdhomerun_discover2_find_devices_broadcast(struct hdhomerun_discover_t *ds, uint32_t flags, uint32_t const device_types[], size_t device_types_count);
-extern LIBHDHOMERUN_API int hdhomerun_discover2_find_device_id_targeted(struct hdhomerun_discover_t *ds, const struct sockaddr *target_addr, uint32_t device_id);
+extern LIBHDHOMERUN_API int hdhomerun_discover2_find_devices_targeted(struct hdhomerun_discover_t *ds, const struct sockaddr *target_addr, const uint32_t device_types[], size_t device_types_count);
 extern LIBHDHOMERUN_API int hdhomerun_discover2_find_device_id_broadcast(struct hdhomerun_discover_t *ds, uint32_t flags, uint32_t device_id);
+extern LIBHDHOMERUN_API int hdhomerun_discover2_find_device_id_targeted(struct hdhomerun_discover_t *ds, const struct sockaddr *target_addr, uint32_t device_id);
 
 /*
  * Discover result access API.
@@ -86,6 +86,7 @@ extern LIBHDHOMERUN_API const char *hdhomerun_discover2_device_get_device_auth(s
 
 extern LIBHDHOMERUN_API bool hdhomerun_discover2_device_if_addr_is_ipv4(struct hdhomerun_discover2_device_if_t *device_if);
 extern LIBHDHOMERUN_API bool hdhomerun_discover2_device_if_addr_is_ipv6_linklocal(struct hdhomerun_discover2_device_if_t *device_if);
+extern LIBHDHOMERUN_API uint32_t hdhomerun_discover2_device_if_get_ipv6_linklocal_scope_id(struct hdhomerun_discover2_device_if_t *device_if);
 extern LIBHDHOMERUN_API void hdhomerun_discover2_device_if_get_ip_addr(struct hdhomerun_discover2_device_if_t *device_if, struct sockaddr_storage *ip_addr);
 extern LIBHDHOMERUN_API const char *hdhomerun_discover2_device_if_get_base_url(struct hdhomerun_discover2_device_if_t *device_if);
 extern LIBHDHOMERUN_API const char *hdhomerun_discover2_device_if_get_lineup_url(struct hdhomerun_discover2_device_if_t *device_if);

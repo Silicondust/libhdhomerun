@@ -98,7 +98,7 @@ void hdhomerun_control_destroy(struct hdhomerun_control_sock_t *cs)
 
 static bool hdhomerun_control_connect_sock_discover(struct hdhomerun_control_sock_t *cs)
 {
-	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(NULL);
+	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(cs->dbg);
 	if (!ds) {
 		return false;
 	}

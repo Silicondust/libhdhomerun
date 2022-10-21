@@ -20,9 +20,17 @@
 
 #include "hdhomerun.h"
 
+#if defined(__APPLE__)
+#import <TargetConditionals.h> 
+#endif
+
 #include <sys/ioctl.h>
 #include <net/if.h>
+
+#if !defined(TARGET_OS_IPHONE)
 #include <netinet6/in6_var.h>
+#endif
+
 #include <ifaddrs.h>
 
 static uint8_t hdhomerun_local_ip_netmask_to_cidr(uint8_t *subnet_mask, size_t len)
@@ -74,6 +82,11 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			continue;
 		}
 
+		if (!hdhomerun_sock_sockaddr_is_addr(ifa->ifa_addr)) {
+			ifa = ifa->ifa_next;
+			continue;
+		}
+
 		unsigned int flags = ifa->ifa_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING | IFF_MULTICAST);
 		if (flags != (IFF_UP | IFF_RUNNING | IFF_MULTICAST)) {
 			ifa = ifa->ifa_next;
@@ -93,6 +106,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		}
 
 		if (ifa->ifa_addr->sa_family == AF_INET6) {
+#if !defined(TARGET_OS_IPHONE)
 			struct in6_ifreq ifr6;
 			memset(&ifr6, 0, sizeof(ifr6));
 
@@ -109,7 +123,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 				ifa = ifa->ifa_next;
 				continue;
 			}
-
+#endif
 			uint32_t ifindex = if_nametoindex(ifa->ifa_name);
 
 			struct sockaddr_in6 *netmask_in = (struct sockaddr_in6 *)ifa->ifa_netmask;

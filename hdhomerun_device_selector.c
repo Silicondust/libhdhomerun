@@ -23,6 +23,7 @@
 struct hdhomerun_device_selector_t {
 	struct hdhomerun_device_t **hd_list;
 	size_t hd_count;
+	struct hdhomerun_discover_t *ds;
 	struct hdhomerun_debug_t *dbg;
 };
 
@@ -51,6 +52,10 @@ void hdhomerun_device_selector_destroy(struct hdhomerun_device_selector_t *hds, 
 
 	if (hds->hd_list) {
 		free(hds->hd_list);
+	}
+
+	if (hds->ds) {
+		hdhomerun_discover_destroy(hds->ds);
 	}
 
 	free(hds);
@@ -123,18 +128,55 @@ struct hdhomerun_device_t *hdhomerun_device_selector_find_device(struct hdhomeru
 	return NULL;
 }
 
-static int hdhomerun_device_selector_load_from_str_discover(struct hdhomerun_device_selector_t *hds, uint32_t target_ip, uint32_t device_id)
+static int hdhomerun_device_selector_load_from_str_discover(struct hdhomerun_device_selector_t *hds, uint32_t device_id, const struct sockaddr *device_addr)
 {
-	struct hdhomerun_discover_device_t result;
-	int discover_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_TUNER, device_id, &result, 1);
-	if (discover_count != 1) {
+	if (!hds->ds) {
+		hds->ds = hdhomerun_discover_create(hds->dbg);
+		if (!hds->ds) {
+			return 0;
+		}
+	}
+
+	uint32_t device_types[1];
+	device_types[0] = HDHOMERUN_DEVICE_TYPE_TUNER;
+
+	if (device_id == 0) {
+		device_id = HDHOMERUN_DEVICE_ID_WILDCARD;
+	}
+
+	int ret;
+	if (hdhomerun_sock_sockaddr_is_addr(device_addr)) {
+		if (device_id == HDHOMERUN_DEVICE_ID_WILDCARD) {
+			ret = hdhomerun_discover2_find_devices_targeted(hds->ds, device_addr, device_types, 1);
+		} else {
+			ret = hdhomerun_discover2_find_device_id_targeted(hds->ds, device_addr, device_id);
+		}
+	} else {
+		uint32_t flags = HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL;
+		if (device_id == HDHOMERUN_DEVICE_ID_WILDCARD) {
+			ret = hdhomerun_discover2_find_devices_broadcast(hds->ds, flags, device_types, 1);
+		} else {
+			ret = hdhomerun_discover2_find_device_id_broadcast(hds->ds, flags, device_id);
+		}
+	}
+	if (ret <= 0) {
+		hdhomerun_debug_printf(hds->dbg, "hdhomerun_device_selector_load_from_str_discover: device not found\n");
 		return 0;
 	}
 
+	struct hdhomerun_discover2_device_t *device = hdhomerun_discover2_iter_device_first(hds->ds);
+	struct hdhomerun_discover2_device_if_t *device_if = hdhomerun_discover2_iter_device_if_first(device);
+
+	device_id = hdhomerun_discover2_device_get_device_id(device);
+	uint8_t tuner_count = hdhomerun_discover2_device_get_tuner_count(device);
+
+	struct sockaddr_storage actual_ip_addr;
+	hdhomerun_discover2_device_if_get_ip_addr(device_if, &actual_ip_addr);
+
 	int count = 0;
 	unsigned int tuner_index;
-	for (tuner_index = 0; tuner_index < result.tuner_count; tuner_index++) {
-		struct hdhomerun_device_t *hd = hdhomerun_device_create(result.device_id, result.ip_addr, tuner_index, hds->dbg);
+	for (tuner_index = 0; tuner_index < tuner_count; tuner_index++) {
+		struct hdhomerun_device_t *hd = hdhomerun_device_create_ex(device_id, (struct sockaddr *)&actual_ip_addr, tuner_index, hds->dbg);
 		if (!hd) {
 			continue;
 		}
@@ -146,98 +188,206 @@ static int hdhomerun_device_selector_load_from_str_discover(struct hdhomerun_dev
 	return count;
 }
 
+static bool hdhomerun_device_selector_load_from_str_parse_device_id(const char *name, uint32_t *pdevice_id)
+{
+	char *end;
+	uint32_t device_id = (uint32_t)strtoul(name, &end, 16);
+	if (end != name + 8) {
+		return false;
+	}
+
+	if (*end != 0) {
+		return false;
+	}
+
+	*pdevice_id = device_id;
+	return true;
+}
+
+static bool hdhomerun_device_selector_load_from_str_parse_dns(const char *name, struct sockaddr_storage *device_addr)
+{
+	const char *ptr = name;
+	if (*ptr == 0) {
+		return false;
+	}
+
+	while (1) {
+		char c = *ptr++;
+		if (c == 0) {
+			break;
+		}
+
+		if ((c >= '0') && (c <= '9')) {
+			continue;
+		}
+		if ((c >= 'a') && (c <= 'z')) {
+			continue;
+		}
+		if ((c >= 'A') && (c <= 'Z')) {
+			continue;
+		}
+		if ((c == '.') || (c == '-')) {
+			continue;
+		}
+
+		return false;
+	}
+
+	return hdhomerun_sock_getaddrinfo_addr_ex(AF_INET, name, device_addr);
+}
+
+static int hdhomerun_device_selector_load_from_str_tail(struct hdhomerun_device_selector_t *hds, const char *tail, uint32_t device_id, struct sockaddr_storage *device_addr)
+{
+	const char *ptr = tail;
+	if (*ptr == 0) {
+		return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)device_addr);
+	}
+
+	if (*ptr == ':') {
+		ptr++;
+
+		char *end;
+		unsigned long port = strtoul(ptr + 1, &end, 10);
+		if (*end != 0) {
+			return 0;
+		}
+		if ((port < 1024) || (port > 65535)) {
+			return 0;
+		}
+
+		if (device_addr->ss_family == AF_INET) {
+			struct sockaddr_in *device_addr_in = (struct sockaddr_in *)device_addr;
+			device_addr_in->sin_port = htons((uint16_t)port);
+
+			struct hdhomerun_device_t *hd = hdhomerun_device_create_multicast_ex((struct sockaddr *)device_addr, hds->dbg);
+			if (!hd) {
+				return 0;
+			}
+
+			hdhomerun_device_selector_add_device(hds, hd);
+			return 1;
+		}
+
+		if (device_addr->ss_family == AF_INET6) {
+			struct sockaddr_in6 *device_addr_in = (struct sockaddr_in6 *)device_addr;
+			device_addr_in->sin6_port = htons((uint16_t)port);
+
+			struct hdhomerun_device_t *hd = hdhomerun_device_create_multicast_ex((struct sockaddr *)device_addr, hds->dbg);
+			if (!hd) {
+				return 0;
+			}
+
+			hdhomerun_device_selector_add_device(hds, hd);
+			return 1;
+		}
+
+		return 0;
+	}
+
+	if (*ptr == '-') {
+		ptr++;
+
+		char *end;
+		unsigned int tuner_index = (unsigned int)strtoul(ptr, &end, 10);
+		if (*end != 0) {
+			return 0;
+		}
+
+		struct hdhomerun_device_t *hd = hdhomerun_device_create_ex(device_id, (struct sockaddr *)device_addr, tuner_index, hds->dbg);
+		if (!hd) {
+			return 0;
+		}
+
+		hdhomerun_device_selector_add_device(hds, hd);
+		return 1;
+	}
+
+	return 0;
+}
+
 int hdhomerun_device_selector_load_from_str(struct hdhomerun_device_selector_t *hds, char *device_str)
 {
-	/*
-	 * IP address based device_str.
-	 */
-	unsigned int a[4];
-	if (sscanf(device_str, "%u.%u.%u.%u", &a[0], &a[1], &a[2], &a[3]) == 4) {
-		uint32_t ip_addr = (uint32_t)((a[0] << 24) | (a[1] << 16) | (a[2] << 8) | (a[3] << 0));
-
-		/*
-		 * Multicast IP address.
-		 */
-		unsigned int port;
-		if (sscanf(device_str, "%u.%u.%u.%u:%u", &a[0], &a[1], &a[2], &a[3], &port) == 5) {
-			struct hdhomerun_device_t *hd = hdhomerun_device_create_multicast(ip_addr, (uint16_t)port, hds->dbg);
-			if (!hd) {
-				return 0;
-			}
-
-			hdhomerun_device_selector_add_device(hds, hd);
-			return 1;
-		}
-
-		/*
-		 * IP address + tuner number.
-		 */
-		unsigned int tuner;
-		if (sscanf(device_str, "%u.%u.%u.%u-%u", &a[0], &a[1], &a[2], &a[3], &tuner) == 5) {
-			struct hdhomerun_device_t *hd = hdhomerun_device_create(HDHOMERUN_DEVICE_ID_WILDCARD, ip_addr, tuner, hds->dbg);
-			if (!hd) {
-				return 0;
-			}
-
-			hdhomerun_device_selector_add_device(hds, hd);
-			return 1;
-		}
-
-		/*
-		 * IP address only - discover and add tuners.
-		 */
-		return hdhomerun_device_selector_load_from_str_discover(hds, ip_addr, HDHOMERUN_DEVICE_ID_WILDCARD);
-	}
-
-	/*
-	 * Device ID based device_str.
-	 */
-	char *end;
-	uint32_t device_id = (uint32_t)strtoul(device_str, &end, 16);
-	if ((end == device_str + 8) && hdhomerun_discover_validate_device_id(device_id)) {
-		/*
-		 * IP address + tuner number.
-		 */
-		if (*end == '-') {
-			unsigned int tuner = (unsigned int)strtoul(end + 1, NULL, 10);
-			struct hdhomerun_device_t *hd = hdhomerun_device_create(device_id, 0, tuner, hds->dbg);
-			if (!hd) {
-				return 0;
-			}
-
-			hdhomerun_device_selector_add_device(hds, hd);
-			return 1;
-		}
-
-		/*
-		 * Device ID only - discover and add tuners.
-		 */
-		return hdhomerun_device_selector_load_from_str_discover(hds, 0, device_id);
-	}
-
-	/*
-	* DNS based device_str.
-	*/
-	struct addrinfo hints;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = IPPROTO_TCP;
-
-	struct addrinfo *sock_info;
-	if (getaddrinfo(device_str, "65001", &hints, &sock_info) != 0) {
+	char str[64];
+	if (!hdhomerun_sprintf(str, str + sizeof(str), "%s", device_str)) {
 		return 0;
 	}
 
-	struct sockaddr_in *sock_addr = (struct sockaddr_in *)sock_info->ai_addr;
-	uint32_t ip_addr = (uint32_t)ntohl(sock_addr->sin_addr.s_addr);
-	freeaddrinfo(sock_info);
+	uint32_t device_id = HDHOMERUN_DEVICE_ID_WILDCARD;
+	struct sockaddr_storage device_addr;
+	device_addr.ss_family = 0;
 
-	if (ip_addr == 0) {
+	char *ptr = str;
+	bool framed = (*ptr == '[');
+	if (framed) {
+		ptr++;
+
+		char *end = strchr(ptr, ']');
+		if (!end) {
+			return 0;
+		}
+
+		*end++ = 0;
+
+		if (hdhomerun_sock_ip_str_to_sockaddr(ptr, &device_addr)) {
+			return hdhomerun_device_selector_load_from_str_tail(hds, end, device_id, &device_addr);
+		}
+
 		return 0;
 	}
 
-	return hdhomerun_device_selector_load_from_str_discover(hds, ip_addr, HDHOMERUN_DEVICE_ID_WILDCARD);
+	char *dash = strchr(ptr, '-');
+	if (dash) {
+		*dash = 0;
+
+		if (hdhomerun_device_selector_load_from_str_parse_device_id(ptr, &device_id)) {
+			*dash = '-';
+			return hdhomerun_device_selector_load_from_str_tail(hds, dash, device_id, &device_addr);
+		}
+		if (hdhomerun_sock_ip_str_to_sockaddr(ptr, &device_addr)) {
+			*dash = '-';
+			return hdhomerun_device_selector_load_from_str_tail(hds, dash, device_id, &device_addr);
+		}
+
+		*dash = '-';
+		if (hdhomerun_device_selector_load_from_str_parse_dns(ptr, &device_addr)) {
+			return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)&device_addr);
+		}
+
+		return 0;
+	}
+
+	char *colon = strchr(ptr, ':');
+	if (colon) {
+		char *second_colon = strchr(colon, ':');
+		if (second_colon) {
+			if (hdhomerun_sock_ip_str_to_sockaddr(ptr, &device_addr)) {
+				return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)&device_addr);
+			}
+
+			return 0;
+		}
+
+		*colon = 0;
+
+		if (hdhomerun_sock_ip_str_to_sockaddr(ptr, &device_addr)) {
+			*colon = ':';
+			return hdhomerun_device_selector_load_from_str_tail(hds, colon, device_id, &device_addr);
+		}
+
+		return 0;
+	}
+
+	if (hdhomerun_device_selector_load_from_str_parse_device_id(ptr, &device_id)) {
+		return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)&device_addr);
+	}
+	if (hdhomerun_sock_ip_str_to_sockaddr(ptr, &device_addr)) {
+		return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)&device_addr);
+	}
+	if (hdhomerun_device_selector_load_from_str_parse_dns(ptr, &device_addr)) {
+		return hdhomerun_device_selector_load_from_str_discover(hds, device_id, (struct sockaddr *)&device_addr);
+	}
+
+	return 0;
 }
 
 int hdhomerun_device_selector_load_from_file(struct hdhomerun_device_selector_t *hds, char *filename)

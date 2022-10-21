@@ -66,6 +66,7 @@ extern LIBHDHOMERUN_API void hdhomerun_sock_destroy(struct hdhomerun_sock_t *soc
 extern LIBHDHOMERUN_API void hdhomerun_sock_set_send_buffer_size(struct hdhomerun_sock_t *sock, size_t size);
 extern LIBHDHOMERUN_API void hdhomerun_sock_set_recv_buffer_size(struct hdhomerun_sock_t *sock, size_t size);
 extern LIBHDHOMERUN_API void hdhomerun_sock_set_allow_reuse(struct hdhomerun_sock_t *sock);
+extern LIBHDHOMERUN_API void hdhomerun_sock_set_ttl(struct hdhomerun_sock_t *sock, uint8_t ttl);
 extern LIBHDHOMERUN_API void hdhomerun_sock_set_ipv4_onesbcast(struct hdhomerun_sock_t *sock, int v);
 extern LIBHDHOMERUN_API void hdhomerun_sock_set_ipv6_multicast_ifindex(struct hdhomerun_sock_t *sock, uint32_t ifindex);
 
