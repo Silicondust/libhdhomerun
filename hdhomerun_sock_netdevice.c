@@ -110,6 +110,9 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 
 		struct sockaddr_in *netmask_in = (struct sockaddr_in *)&ifr->ifr_addr;
 		uint8_t cidr = hdhomerun_local_ip_netmask_to_cidr((uint8_t *)&netmask_in->sin_addr.s_addr, 4);
+		if ((cidr == 0) || (cidr >= 32)) {
+			continue;
+		}
 
 		/* ifindex. */
 		if (ioctl(sock, SIOCGIFINDEX, ifr) != 0) {
@@ -117,6 +120,9 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		}
 
 		uint32_t ifindex = ifr->ifr_ifindex;
+		if (ifindex == 0) {
+			continue;
+		}
 
 		/* Result. */
 		callback(callback_arg, ifindex, (const struct sockaddr *)&ip_addr_in, cidr);

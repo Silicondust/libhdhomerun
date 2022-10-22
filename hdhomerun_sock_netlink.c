@@ -46,6 +46,9 @@ static void hdhomerun_local_ip_info2_newaddr(int af_sock, struct nlmsghdr *hdr, 
 
 	/* ifindex */
 	uint32_t ifindex = addrmsg->ifa_index;
+	if (ifindex == 0) {
+		return;
+	}
 
 	/* interface flags */
 	struct ifreq ifr;
@@ -78,6 +81,11 @@ static void hdhomerun_local_ip_info2_newaddr(int af_sock, struct nlmsghdr *hdr, 
 		}
 
 		uint8_t cidr = (uint8_t)addrmsg->ifa_prefixlen;
+		uint8_t cidr_fail = (addrmsg->ifa_family == AF_INET6) ? 128 : 32;
+		if ((cidr == 0) || (cidr >= cidr_fail)) {
+			rta = RTA_NEXT(rta, ifa_payload_length);
+			continue;
+		}
 
 		if (addrmsg->ifa_family == AF_INET) {
 			struct sockaddr_in local_ip;

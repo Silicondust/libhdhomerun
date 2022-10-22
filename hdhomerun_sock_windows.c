@@ -77,6 +77,10 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		}
 
 		uint32_t ifindex = adapter->IfIndex;
+		if (ifindex == 0) {
+			adapter = adapter->Next;
+			continue;
+		}
 
 		IP_ADAPTER_UNICAST_ADDRESS *adapter_address = adapter->FirstUnicastAddress;
 		while (adapter_address) {
@@ -91,12 +95,13 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 				continue;
 			}
 
-			if ((local_ip->sa_family == AF_INET6) && (adapter_address->ValidLifetime != 0xFFFFFFFF)) {
+			uint8_t cidr = adapter_address->OnLinkPrefixLength;
+			uint8_t cidr_fail = (local_ip->sa_family == AF_INET6) ? 128 : 32;
+			if ((cidr == 0) || (cidr >= cidr_fail)) {
 				adapter_address = adapter_address->Next;
-				continue; /* skip temporary addresses */
+				continue;
 			}
 
-			uint8_t cidr = adapter_address->OnLinkPrefixLength;
 			callback(callback_arg, ifindex, local_ip, cidr);
 
 			adapter_address = adapter_address->Next;

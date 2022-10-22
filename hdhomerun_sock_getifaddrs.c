@@ -93,11 +93,19 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			continue;
 		}
 
-		if (ifa->ifa_addr->sa_family == AF_INET) {
-			uint32_t ifindex = if_nametoindex(ifa->ifa_name);
+		uint32_t ifindex = if_nametoindex(ifa->ifa_name);
+		if (ifindex == 0) {
+			ifa = ifa->ifa_next;
+			continue;
+		}
 
+		if (ifa->ifa_addr->sa_family == AF_INET) {
 			struct sockaddr_in *netmask_in = (struct sockaddr_in *)ifa->ifa_netmask;
 			uint8_t cidr = hdhomerun_local_ip_netmask_to_cidr((uint8_t *)&netmask_in->sin_addr.s_addr, 4);
+			if ((cidr == 0) || (cidr >= 32)) {
+				ifa = ifa->ifa_next;
+				continue;
+			}
 
 			callback(callback_arg, ifindex, ifa->ifa_addr, cidr);
 
@@ -106,6 +114,13 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		}
 
 		if (ifa->ifa_addr->sa_family == AF_INET6) {
+			struct sockaddr_in6 *netmask_in = (struct sockaddr_in6 *)ifa->ifa_netmask;
+			uint8_t cidr = hdhomerun_local_ip_netmask_to_cidr(netmask_in->sin6_addr.s6_addr, 16);
+			if ((cidr == 0) || (cidr >= 128)) {
+				ifa = ifa->ifa_next;
+				continue;
+			}
+
 #if !defined(TARGET_OS_IPHONE)
 			struct in6_ifreq ifr6;
 			memset(&ifr6, 0, sizeof(ifr6));
@@ -114,21 +129,17 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			strcpy(ifr6.ifr_name, ifa->ifa_name);
 			ifr6.ifr_addr = *addr_in;
 
-			if (ioctl(af6_sock, SIOCGIFALIFETIME_IN6, &ifr6) < 0) {
+			if (ioctl(af6_sock, SIOCGIFAFLAG_IN6, &ifr6) < 0) {
 				ifa = ifa->ifa_next;
 				continue;
 			}
 			
-			if (ifr6.ifr_ifru.ifru_lifetime.ia6t_vltime != 0xFFFFFFFF) {
+			uint32_t flags6 = ifr6.ifr_ifru.ifru_flags6;
+			if (flags6 & (IN6_IFF_ANYCAST | IN6_IFF_TENTATIVE | IN6_IFF_DETACHED | IN6_IFF_TEMPORARY | IN6_IFF_DEPRECATED)) {
 				ifa = ifa->ifa_next;
 				continue;
 			}
 #endif
-			uint32_t ifindex = if_nametoindex(ifa->ifa_name);
-
-			struct sockaddr_in6 *netmask_in = (struct sockaddr_in6 *)ifa->ifa_netmask;
-			uint8_t cidr = hdhomerun_local_ip_netmask_to_cidr(netmask_in->sin6_addr.s6_addr, 16);
-
 			callback(callback_arg, ifindex, ifa->ifa_addr, cidr);
 
 			ifa = ifa->ifa_next;
