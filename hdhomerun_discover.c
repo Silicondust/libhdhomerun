@@ -292,6 +292,7 @@ static void hdhomerun_discover_sock_detect_cleanup(struct hdhomerun_discover_soc
 	struct hdhomerun_discover_sock_t *p = default_dss->next;
 	while (p) {
 		if (!p->new_flag) {
+			*pprev = p->next;
 			hdhomerun_discover_sock_free(p);
 			p = *pprev;
 			continue;
