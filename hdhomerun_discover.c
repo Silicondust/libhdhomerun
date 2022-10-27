@@ -97,13 +97,19 @@ static void hdhomerun_discover_sock_add_ipv6(void *arg, uint32_t ifindex, const 
 	}
 
 	struct hdhomerun_discover_t *ds = (struct hdhomerun_discover_t *)arg;
-	struct sockaddr_in6 *detected_ip = (struct sockaddr_in6 *)local_ip;
+	struct sockaddr_in6 *local_ip_in6 = (struct sockaddr_in6 *)local_ip;
+
+	char local_ip_str[64];
+	hdhomerun_sock_sockaddr_to_ip_str(local_ip_str, local_ip, true);
+	if (hdhomerun_sock_sockaddr_is_addr(local_ip)) {
+		hdhomerun_debug_printf(ds->dbg, "discover: local ip %s/%u\n", local_ip_str, cidr);
+	}
 
 	struct hdhomerun_discover_sock_t **pprev = &ds->ipv6_socks;
 	struct hdhomerun_discover_sock_t *p = ds->ipv6_socks;
 	while (p) {
 		struct sockaddr_in6 *p_ip = (struct sockaddr_in6 *)&p->local_ip;
-		if ((p->ifindex == ifindex) && (memcmp(p_ip->sin6_addr.s6_addr, detected_ip->sin6_addr.s6_addr, 16) == 0)) {
+		if ((p->ifindex == ifindex) && (memcmp(p_ip->sin6_addr.s6_addr, local_ip_in6->sin6_addr.s6_addr, 16) == 0)) {
 			p->new_flag = true;
 			return;
 		}
@@ -127,22 +133,16 @@ static void hdhomerun_discover_sock_add_ipv6(void *arg, uint32_t ifindex, const 
 	}
 
 	/* Bind socket. */
-	detected_ip->sin6_port = htons(hdhomerun_discover_get_local_port(ds));
+	local_ip_in6->sin6_port = htons(hdhomerun_discover_get_local_port(ds));
 
-	if (!hdhomerun_sock_bind_ex(dss->sock, (const struct sockaddr *)detected_ip, true)) {
-		if (ds->dbg) {
-			int last_error = hdhomerun_sock_getlasterror();
-			char detected_ip_str[64];
-			hdhomerun_sock_sockaddr_to_ip_str(detected_ip_str, (const struct sockaddr *)detected_ip, true);
-			hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", detected_ip_str, last_error);
-		}
-
+	if (!hdhomerun_sock_bind_ex(dss->sock, local_ip, true)) {
+		hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", local_ip_str, hdhomerun_sock_getlasterror());
 		hdhomerun_discover_sock_free(dss);
 		return;
 	}
 
 	/* Success. */
-	memcpy(&dss->local_ip, detected_ip, sizeof(struct sockaddr_in6));
+	memcpy(&dss->local_ip, local_ip_in6, sizeof(struct sockaddr_in6));
 	dss->ifindex = ifindex;
 	dss->new_flag = true;
 	*pprev = dss;
@@ -155,14 +155,20 @@ static void hdhomerun_discover_sock_add_ipv4(void *arg, uint32_t ifindex, const 
 	}
 
 	struct hdhomerun_discover_t *ds = (struct hdhomerun_discover_t *)arg;
-	struct sockaddr_in *detected_ip = (struct sockaddr_in *)local_ip;
+	struct sockaddr_in *local_ip_in = (struct sockaddr_in *)local_ip;
 	uint32_t detected_subnet_mask = 0xFFFFFFFF << (32 - cidr);
+
+	char local_ip_str[64];
+	hdhomerun_sock_sockaddr_to_ip_str(local_ip_str, local_ip, true);
+	if (hdhomerun_sock_sockaddr_is_addr(local_ip)) {
+		hdhomerun_debug_printf(ds->dbg, "discover: local ip %s/%u\n", local_ip_str, cidr);
+	}
 
 	struct hdhomerun_discover_sock_t **pprev = &ds->ipv4_socks;
 	struct hdhomerun_discover_sock_t *p = ds->ipv4_socks;
 	while (p) {
 		struct sockaddr_in *p_ip = (struct sockaddr_in *)&p->local_ip;
-		if ((p->ifindex == ifindex) && (p_ip->sin_addr.s_addr == detected_ip->sin_addr.s_addr) && (p->ipv4_subnet_mask == detected_subnet_mask)) {
+		if ((p->ifindex == ifindex) && (p_ip->sin_addr.s_addr == local_ip_in->sin_addr.s_addr) && (p->ipv4_subnet_mask == detected_subnet_mask)) {
 			p->new_flag = true;
 			return;
 		}
@@ -186,22 +192,16 @@ static void hdhomerun_discover_sock_add_ipv4(void *arg, uint32_t ifindex, const 
 	}
 
 	/* Bind socket. */
-	detected_ip->sin_port = htons(hdhomerun_discover_get_local_port(ds));
+	local_ip_in->sin_port = htons(hdhomerun_discover_get_local_port(ds));
 
-	if (!hdhomerun_sock_bind_ex(dss->sock, (const struct sockaddr *)detected_ip, true)) {
-		if (ds->dbg) {
-			int last_error = hdhomerun_sock_getlasterror();
-			char detected_ip_str[64];
-			hdhomerun_sock_sockaddr_to_ip_str(detected_ip_str, (const struct sockaddr *)detected_ip, true);
-			hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", detected_ip_str, last_error);
-		}
-
+	if (!hdhomerun_sock_bind_ex(dss->sock, local_ip, true)) {
+		hdhomerun_debug_printf(ds->dbg, "discover: failed to bind to local ip %s (%d)\n", local_ip_str, hdhomerun_sock_getlasterror());
 		hdhomerun_discover_sock_free(dss);
 		return;
 	}
 
 	/* Success. */
-	memcpy(&dss->local_ip, detected_ip, sizeof(struct sockaddr_in));
+	memcpy(&dss->local_ip, local_ip_in, sizeof(struct sockaddr_in));
 	dss->ifindex = ifindex;
 	dss->ipv4_subnet_mask = detected_subnet_mask;
 	dss->new_flag = true;

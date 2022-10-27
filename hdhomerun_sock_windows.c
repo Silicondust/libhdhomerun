@@ -66,11 +66,6 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			continue;
 		}
 
-		if ((adapter->IfType != MIB_IF_TYPE_ETHERNET) && (adapter->IfType != IF_TYPE_IEEE80211)) {
-			adapter = adapter->Next;
-			continue;
-		}
-
 		if (adapter->PhysicalAddressLength != 6) {
 			adapter = adapter->Next;
 			continue;
