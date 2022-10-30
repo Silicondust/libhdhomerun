@@ -61,13 +61,17 @@ static void hdhomerun_local_ip_info2_newaddr(int af_sock, struct nlmsghdr *hdr, 
 		return;
 	}
 
-	uint32_t flags = ifr.ifr_flags;
-	flags &= (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING | IFF_MULTICAST);
-	if (flags != (IFF_UP | IFF_RUNNING | IFF_MULTICAST)) {
+	if ((ifr.ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
+		return;
+	}
+	if ((ifr.ifr_flags & (IFF_UP | IFF_RUNNING)) != (IFF_UP | IFF_RUNNING)) {
+		return;
+	}
+	if ((addrmsg->ifa_family == AF_INET6) && ((ifr.ifr_flags & IFF_MULTICAST) == 0)) {
 		return;
 	}
 
-	 /* addresses */
+	/* addresses */
 	size_t ifa_payload_length = IFA_PAYLOAD(hdr);
 	struct rtattr *rta = IFA_RTA(addrmsg);
 	while (1) {
@@ -177,7 +181,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 
 		struct nlmsghdr *hdr = (struct nlmsghdr *)nl_buffer;
 		while (1) {
-			if (!NLMSG_OK(hdr, length)) {
+			if (!NLMSG_OK(hdr, (unsigned int)length)) {
 				break;
 			}
 

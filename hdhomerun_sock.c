@@ -46,6 +46,79 @@ bool hdhomerun_sock_sockaddr_is_addr(const struct sockaddr *addr)
 	return false;
 }
 
+bool hdhomerun_sock_sockaddr_is_multicast(const struct sockaddr *ip_addr)
+{
+	if (ip_addr->sa_family == AF_INET6) {
+		const struct sockaddr_in6 *addr_in6 = (const struct sockaddr_in6 *)ip_addr;
+		return (addr_in6->sin6_addr.s6_addr[0] == 0xFF);
+	}
+
+	if (ip_addr->sa_family == AF_INET) {
+		const struct sockaddr_in *addr_in = (const struct sockaddr_in *)ip_addr;
+		uint32_t v = ntohl(addr_in->sin_addr.s_addr);
+		return (v >= 0xE0000000) && (v < 0xF0000000);
+	}
+
+	return false;
+}
+
+bool hdhomerun_sock_sockaddr_is_ipv4_localhost(const struct sockaddr *ip_addr)
+{
+	if (ip_addr->sa_family != AF_INET) {
+		return false;
+	}
+
+	const struct sockaddr_in *sock_addr_in = (const struct sockaddr_in *)ip_addr;
+	uint8_t *addr_bytes = (uint8_t *)&sock_addr_in->sin_addr.s_addr;
+	return (addr_bytes[0] == 0x7F);
+}
+
+bool hdhomerun_sock_sockaddr_is_ipv4_autoip(const struct sockaddr *ip_addr)
+{
+	if (ip_addr->sa_family != AF_INET) {
+		return false;
+	}
+
+	const struct sockaddr_in *sock_addr_in = (const struct sockaddr_in *)ip_addr;
+	uint8_t *addr_bytes = (uint8_t *)&sock_addr_in->sin_addr.s_addr;
+	return (addr_bytes[0] == 169) && (addr_bytes[1] == 254);
+}
+
+bool hdhomerun_sock_sockaddr_is_ipv6_localhost(const struct sockaddr *ip_addr)
+{
+	if (ip_addr->sa_family != AF_INET6) {
+		return false;
+	}
+
+	const struct sockaddr_in6 *sock_addr_in6 = (const struct sockaddr_in6 *)ip_addr;
+	uint8_t *addr_bytes = (uint8_t *)sock_addr_in6->sin6_addr.s6_addr;
+
+	static uint8_t hdhomerun_discover_ipv6_localhost_bytes[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+	return (memcmp(addr_bytes, hdhomerun_discover_ipv6_localhost_bytes, 16) == 0);
+}
+
+bool hdhomerun_sock_sockaddr_is_ipv6_linklocal(const struct sockaddr *addr)
+{
+	if (addr->sa_family != AF_INET6) {
+		return false;
+	}
+
+	const struct sockaddr_in6 *addr_in6 = (const struct sockaddr_in6 *)addr;
+	uint8_t *addr_bytes = (uint8_t *)addr_in6->sin6_addr.s6_addr;
+	return (addr_bytes[0] == 0xFE) && ((addr_bytes[1] & 0xC0) == 0x80);
+}
+
+bool hdhomerun_sock_sockaddr_is_ipv6_global(const struct sockaddr *ip_addr)
+{
+	if (ip_addr->sa_family != AF_INET6) {
+		return false;
+	}
+
+	const struct sockaddr_in6 *sock_addr_in6 = (const struct sockaddr_in6 *)ip_addr;
+	uint8_t *addr_bytes = (uint8_t *)sock_addr_in6->sin6_addr.s6_addr;
+	return ((addr_bytes[0] & 0xE0) == 0x20);
+}
+
 uint16_t hdhomerun_sock_sockaddr_get_port(const struct sockaddr *addr)
 {
 	if (addr->sa_family == AF_INET6) {

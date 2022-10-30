@@ -38,6 +38,12 @@ extern "C" {
  */
 
 extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_addr(const struct sockaddr *addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_multicast(const struct sockaddr *ip_addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_ipv4_localhost(const struct sockaddr *addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_ipv4_autoip(const struct sockaddr *addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_ipv6_localhost(const struct sockaddr *addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_ipv6_linklocal(const struct sockaddr *addr);
+extern LIBHDHOMERUN_API bool hdhomerun_sock_sockaddr_is_ipv6_global(const struct sockaddr *addr);
 extern LIBHDHOMERUN_API uint16_t hdhomerun_sock_sockaddr_get_port(const struct sockaddr *addr);
 extern LIBHDHOMERUN_API void hdhomerun_sock_sockaddr_set_port(struct sockaddr *addr, uint16_t port);
 extern LIBHDHOMERUN_API void hdhomerun_sock_sockaddr_copy(struct sockaddr_storage *result, const struct sockaddr *addr);

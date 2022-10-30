@@ -152,7 +152,7 @@ static bool hdhomerun_control_connect_sock(struct hdhomerun_control_sock_t *cs)
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: no device specified\n");
 		return false;
 	}
-	if (hdhomerun_discover_is_ip_multicast_ex((struct sockaddr *)&cs->desired_device_addr)) {
+	if (hdhomerun_sock_sockaddr_is_multicast((struct sockaddr *)&cs->desired_device_addr)) {
 		hdhomerun_debug_printf(cs->dbg, "hdhomerun_control_connect_sock: cannot use multicast ip address for device operations\n");
 		return false;
 	}

@@ -87,8 +87,15 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			continue;
 		}
 
-		unsigned int flags = ifa->ifa_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING | IFF_MULTICAST);
-		if (flags != (IFF_UP | IFF_RUNNING | IFF_MULTICAST)) {
+		if ((ifa->ifa_flags & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
+			ifa = ifa->ifa_next;
+			continue;
+		}
+		if ((ifa->ifa_flags & (IFF_UP | IFF_RUNNING)) != (IFF_UP | IFF_RUNNING)) {
+			ifa = ifa->ifa_next;
+			continue;
+		}
+		if ((ifa->ifa_addr->sa_family == AF_INET6) && ((ifa->ifa_flags & IFF_MULTICAST) == 0)) {
 			ifa = ifa->ifa_next;
 			continue;
 		}

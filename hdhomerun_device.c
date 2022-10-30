@@ -50,7 +50,7 @@ int hdhomerun_device_set_device_ex(struct hdhomerun_device_t *hd, uint32_t devic
 		return -1;
 	}
 
-	if (hdhomerun_discover_is_ip_multicast_ex(device_addr)) {
+	if (hdhomerun_sock_sockaddr_is_multicast(device_addr)) {
 		hdhomerun_debug_printf(hd->dbg, "hdhomerun_device_set_device: invalid address\n");
 		return -1;
 	}
@@ -93,7 +93,7 @@ int hdhomerun_device_set_multicast(struct hdhomerun_device_t *hd, uint32_t multi
 
 int hdhomerun_device_set_multicast_ex(struct hdhomerun_device_t *hd, const struct sockaddr *multicast_addr)
 {
-	if (!hdhomerun_discover_is_ip_multicast_ex(multicast_addr)) {
+	if (!hdhomerun_sock_sockaddr_is_multicast(multicast_addr)) {
 		hdhomerun_debug_printf(hd->dbg, "hdhomerun_device_set_device_multicast: invalid address\n");
 		return -1;
 	}

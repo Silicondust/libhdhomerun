@@ -98,8 +98,10 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 			continue;
 		}
 
-		unsigned int flags = ifr->ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT | IFF_UP | IFF_RUNNING | IFF_MULTICAST);
-		if (flags != (IFF_UP | IFF_RUNNING | IFF_MULTICAST)) {
+		if ((ifr->ifr_flags & (IFF_LOOPBACK | IFF_POINTOPOINT)) != 0) {
+			continue;
+		}
+		if ((ifr->ifr_flags & (IFF_UP | IFF_RUNNING)) != (IFF_UP | IFF_RUNNING)) {
 			continue;
 		}
 
