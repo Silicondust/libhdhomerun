@@ -1189,6 +1189,32 @@ static bool hdhomerun_discover_recvfrom(struct hdhomerun_discover_t *ds, struct 
 	return activity;
 }
 
+static void hdhomerun_discover2_find_devices_debug_log_results(struct hdhomerun_discover_t *ds)
+{
+	if (!ds->dbg) {
+		return;
+	}
+
+	struct hdhomerun_discover2_device_t *device = ds->device_list;
+	while (device) {
+		struct hdhomerun_discover2_device_if_t *device_if = device->if_list;
+		if (device->device_id) {
+			hdhomerun_debug_printf(ds->dbg, "discover: found %08X %s\n", device->device_id, device_if->base_url);
+			device = device->next;
+			continue;
+		}
+
+		if (device->storage_id) {
+			hdhomerun_debug_printf(ds->dbg, "discover: found %s %s\n", device->storage_id, device_if->base_url);
+			device = device->next;
+			continue;
+		}
+
+		hdhomerun_debug_printf(ds->dbg, "discover: found %s\n", device_if->base_url);
+		device = device->next;
+	}
+}
+
 static uint32_t hdhomerun_discover2_find_devices_targeted_flags(const struct sockaddr *target_addr)
 {
 	if (target_addr->sa_family == AF_INET6) {
@@ -1255,6 +1281,7 @@ static int hdhomerun_discover2_find_devices_targeted_internal(struct hdhomerun_d
 			}
 
 			if (ds->device_list) {
+				hdhomerun_discover2_find_devices_debug_log_results(ds);
 				return 1;
 			}
 			if (activity) {
@@ -1267,6 +1294,7 @@ static int hdhomerun_discover2_find_devices_targeted_internal(struct hdhomerun_d
 		}
 	}
 
+	hdhomerun_discover2_find_devices_debug_log_results(ds);
 	return (ds->device_list) ? 1 : 0;
 }
 
@@ -1306,6 +1334,7 @@ static int hdhomerun_discover2_find_devices_broadcast_internal(struct hdhomerun_
 			}
 
 			if ((device_id != HDHOMERUN_DEVICE_ID_WILDCARD) && ds->device_list) {
+				hdhomerun_discover2_find_devices_debug_log_results(ds);
 				return 1;
 			}
 			if (activity) {
@@ -1318,6 +1347,7 @@ static int hdhomerun_discover2_find_devices_broadcast_internal(struct hdhomerun_
 		}
 	}
 
+	hdhomerun_discover2_find_devices_debug_log_results(ds);
 	return (ds->device_list) ? 1 : 0;
 }
 
