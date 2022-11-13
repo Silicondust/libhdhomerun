@@ -85,16 +85,8 @@ bool thread_task_create(thread_task_t *tid, thread_task_func_t func, void *arg)
 
 void thread_task_join(thread_task_t tid)
 {
-	while (1) {
-		DWORD ExitCode = 0;
-		if (!GetExitCodeThread(tid, &ExitCode)) {
-			return;
-		}
-		if (ExitCode != STILL_ACTIVE) {
-			CloseHandle(tid);
-			return;
-		}
-	}
+	WaitForSingleObject(tid, INFINITE);
+	CloseHandle(tid);
 }
 
 void thread_mutex_init(thread_mutex_t *mutex)
