@@ -9,7 +9,10 @@ set(hdhomerun_sources
   hdhomerun_device.c
   hdhomerun_device_selector.c
   hdhomerun_discover.c
+  hdhomerun_os_posix.c
   hdhomerun_pkt.c
+  hdhomerun_sock.c
+  hdhomerun_sock_posix.c
   hdhomerun_video.c
   )
 
@@ -35,7 +38,7 @@ if (WIN32)
     ${hdhomerun_sources}
 
     hdhomerun_os_windows.c
-    hdhomerun_sock_windows.c
+    hdhomerun_sock_netdevice.c
     )
 
   set(hdhomerun_headers
@@ -48,13 +51,6 @@ if (WIN32)
 
 else (WIN32)
 
-  set(hdhomerun_sources
-    ${hdhomerun_sources}
-
-    hdhomerun_os_posix.c
-    hdhomerun_sock_posix.c
-    )
-
   set(hdhomerun_headers
     ${hdhomerun_headers}
 
@@ -64,7 +60,16 @@ else (WIN32)
   set(hdhomerun_libs pthread)
 
   if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(hdhomerun_sources
+      ${hdhomerun_sources}
+      hdhomerun_sock_netlink.c
+      )
     set(hdhomerun_libs ${hdhomerun_libs} rt)
+  else()
+    set(hdhomerun_sources
+      ${hdhomerun_sources}
+      hdhomerun_sock_getifaddrs.c
+      )
   endif()
 
   if (CMAKE_SYSTEM_NAME MATCHES "(Solaris|SunOS)")
