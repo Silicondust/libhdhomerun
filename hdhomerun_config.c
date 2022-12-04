@@ -1,7 +1,7 @@
 /*
  * hdhomerun_config.c
  *
- * Copyright © 2006-2017 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -27,7 +27,7 @@ struct hdhomerun_device_t *hd;
 static int help(void)
 {
 	printf("Usage:\n");
-	printf("\t%s discover\n", appname);
+	printf("\t%s discover [-4] [-6] [--dedupe] [<ip>]\n", appname);
 	printf("\t%s <id> get help\n", appname);
 	printf("\t%s <id> get <item>\n", appname);
 	printf("\t%s <id> set <item> <value>\n", appname);
@@ -69,59 +69,102 @@ static bool contains(const char *arg, const char *cmpstr)
 	return false;
 }
 
-static uint32_t parse_ip_addr(const char *str)
+static int discover_print(int argc, char *argv[])
 {
-	unsigned int a[4];
-	if (sscanf(str, "%u.%u.%u.%u", &a[0], &a[1], &a[2], &a[3]) != 4) {
-		return 0;
-	}
+	const char *target_ip_str = NULL;
+	uint32_t flags = 0;
+	bool dedupe = false;
 
-	return (uint32_t)((a[0] << 24) | (a[1] << 16) | (a[2] << 8) | (a[3] << 0));
-}
-
-static int discover_print(char *target_ip_str)
-{
-	uint32_t target_ip = 0;
-	if (target_ip_str) {
-		target_ip = parse_ip_addr(target_ip_str);
-		if (target_ip == 0) {
-			fprintf(stderr, "invalid ip address: %s\n", target_ip_str);
-			return -1;
-		}
-	}
-
-	struct hdhomerun_discover_device_t result_list[64];
-	int result_count = hdhomerun_discover_find_devices_custom_v2(target_ip, HDHOMERUN_DEVICE_TYPE_WILDCARD, HDHOMERUN_DEVICE_ID_WILDCARD, result_list, 64);
-	if (result_count < 0) {
-		fprintf(stderr, "error sending discover request\n");
-		return -1;
-	}
-
-	struct hdhomerun_discover_device_t *result = result_list;
-	struct hdhomerun_discover_device_t *result_end = result_list + result_count;
-
-	int valid_count = 0;
-	while (result < result_end) {
-		if (result->device_id == 0) {
-			result++;
+	while (argc--) {
+		char *param = *argv++;
+		if (param[0] != '-') {
+			target_ip_str = param;
 			continue;
 		}
 
-		printf("hdhomerun device %08X found at %u.%u.%u.%u\n",
-			(unsigned int)result->device_id,
-			(unsigned int)(result->ip_addr >> 24) & 0x0FF, (unsigned int)(result->ip_addr >> 16) & 0x0FF,
-			(unsigned int)(result->ip_addr >> 8) & 0x0FF, (unsigned int)(result->ip_addr >> 0) & 0x0FF
-		);
+		if (contains(param, "-4")) {
+			flags |= HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL;
+			continue;
+		}
+		if (contains(param, "-6")) {
+			flags |= HDHOMERUN_DISCOVER_FLAGS_IPV6_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV6_LINKLOCAL;
+			continue;
+		}
 
-		valid_count++;
-		result++;
+		if (contains(param, "dedupe")) {
+			dedupe = true;
+			continue;
+		}
 	}
 
-	if (valid_count == 0) {
+	if (flags == 0) {
+		flags = HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV6_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV6_LINKLOCAL;
+	}
+
+	struct hdhomerun_discover_t *ds = hdhomerun_discover_create(NULL);
+	if (!ds) {
+		fprintf(stderr, "resource error\n");
+		return -1;
+	}
+
+	/* Most applications will specify a list of specific types rather than wildcard */
+	uint32_t device_types[1];
+	device_types[0] = HDHOMERUN_DEVICE_TYPE_WILDCARD;
+
+	int ret;
+	if (target_ip_str) {
+		struct sockaddr_storage target_addr;
+		if (!hdhomerun_sock_ip_str_to_sockaddr(target_ip_str , &target_addr)) {
+			fprintf(stderr, "invalid ip address: %s\n", target_ip_str);
+			hdhomerun_discover_destroy(ds);
+			return -1;
+		}
+		ret = hdhomerun_discover2_find_devices_targeted(ds, (struct sockaddr *)&target_addr, device_types, 1);
+	} else {
+		ret = hdhomerun_discover2_find_devices_broadcast(ds, flags, device_types, 1);
+	}
+
+	if (ret < 0) {
+		fprintf(stderr, "error sending discover request\n");
+		hdhomerun_discover_destroy(ds);
+		return -1;
+	}
+
+	if (ret == 0) {
 		printf("no devices found\n");
+		hdhomerun_discover_destroy(ds);
+		return 0;
 	}
 
-	return valid_count;
+	struct hdhomerun_discover2_device_t *device = hdhomerun_discover2_iter_device_first(ds);
+	while (device) {
+		uint32_t device_id = hdhomerun_discover2_device_get_device_id(device);
+		if (device_id == 0) {
+			device = hdhomerun_discover2_iter_device_next(device);
+			continue;
+		}
+
+		struct hdhomerun_discover2_device_if_t *device_if = hdhomerun_discover2_iter_device_if_first(device);
+		while (device_if) {
+			struct sockaddr_storage ip_addr;
+			hdhomerun_discover2_device_if_get_ip_addr(device_if, &ip_addr);
+
+			char ip_str[64];
+			hdhomerun_sock_sockaddr_to_ip_str(ip_str, (struct sockaddr *)&ip_addr, true);
+			printf("hdhomerun device %08X found at %s\n", device_id, ip_str);
+
+			if (dedupe) {
+				break;
+			}
+
+			device_if = hdhomerun_discover2_iter_device_if_next(device_if);
+		}
+
+		device = hdhomerun_discover2_iter_device_next(device);
+	}
+
+	hdhomerun_discover_destroy(ds);
+	return 1;
 }
 
 static int cmd_get(const char *item)
@@ -632,7 +675,7 @@ static int main_internal(int argc, char *argv[])
 	/* Initialize network socket support. */
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	WSADATA wsaData;
-	WSAStartup(wVersionRequested, &wsaData);
+	(void)WSAStartup(wVersionRequested, &wsaData);
 #endif
 
 	extract_appname(argv[0]);
@@ -648,11 +691,7 @@ static int main_internal(int argc, char *argv[])
 		return help();
 	}
 	if (contains(id_str, "discover")) {
-		if (argc < 1) {
-			return discover_print(NULL);
-		} else {
-			return discover_print(argv[0]);
-		}
+		return discover_print(argc, argv);
 	}
 
 	/* Device object. */

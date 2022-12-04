@@ -1,7 +1,7 @@
 /*
  * hdhomerun_control.h
  *
- * Copyright © 2006-2015 Silicondust USA Inc. <www.silicondust.com>.
+ * Copyright © 2006-2022 Silicondust USA Inc. <www.silicondust.com>.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -38,6 +38,7 @@ struct hdhomerun_control_sock_t;
  * When no longer needed, the socket should be destroyed by calling hdhomerun_control_destroy.
  */
 extern LIBHDHOMERUN_API struct hdhomerun_control_sock_t *hdhomerun_control_create(uint32_t device_id, uint32_t device_ip, struct hdhomerun_debug_t *dbg);
+extern LIBHDHOMERUN_API struct hdhomerun_control_sock_t *hdhomerun_control_create_ex(uint32_t device_id, const struct sockaddr *device_addr, struct hdhomerun_debug_t *dbg);
 extern LIBHDHOMERUN_API void hdhomerun_control_destroy(struct hdhomerun_control_sock_t *cs);
 
 /*
@@ -47,10 +48,13 @@ extern LIBHDHOMERUN_API void hdhomerun_control_destroy(struct hdhomerun_control_
  */
 extern LIBHDHOMERUN_API uint32_t hdhomerun_control_get_device_id(struct hdhomerun_control_sock_t *cs);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_control_get_device_ip(struct hdhomerun_control_sock_t *cs);
+extern LIBHDHOMERUN_API bool hdhomerun_control_get_device_addr(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_control_get_device_id_requested(struct hdhomerun_control_sock_t *cs);
 extern LIBHDHOMERUN_API uint32_t hdhomerun_control_get_device_ip_requested(struct hdhomerun_control_sock_t *cs);
+extern LIBHDHOMERUN_API bool hdhomerun_control_get_device_addr_requested(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result);
 
 extern LIBHDHOMERUN_API void hdhomerun_control_set_device(struct hdhomerun_control_sock_t *cs, uint32_t device_id, uint32_t device_ip);
+extern LIBHDHOMERUN_API void hdhomerun_control_set_device_ex(struct hdhomerun_control_sock_t *cs, uint32_t device_id, const struct sockaddr *device_addr);
 
 /*
  * Get the local machine IP address used when communicating with the device.
@@ -60,6 +64,7 @@ extern LIBHDHOMERUN_API void hdhomerun_control_set_device(struct hdhomerun_contr
  * Returns 32-bit IP address with native endianness, or 0 on error.
  */
 extern LIBHDHOMERUN_API uint32_t hdhomerun_control_get_local_addr(struct hdhomerun_control_sock_t *cs);
+extern LIBHDHOMERUN_API bool hdhomerun_control_get_local_addr_ex(struct hdhomerun_control_sock_t *cs, struct sockaddr_storage *result);
 
 /*
  * Low-level communication.
