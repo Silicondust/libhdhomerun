@@ -104,7 +104,7 @@ extern LIBHDHOMERUN_API void thread_cond_init(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_dispose(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_signal(thread_cond_t *cond);
 extern LIBHDHOMERUN_API void thread_cond_wait(thread_cond_t *cond);
-extern LIBHDHOMERUN_API void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time);
+extern LIBHDHOMERUN_API bool thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time);
 
 extern LIBHDHOMERUN_API bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap);
 extern LIBHDHOMERUN_API bool hdhomerun_sprintf(char *buffer, char *end, const char *fmt, ...);

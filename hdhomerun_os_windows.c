@@ -129,9 +129,9 @@ void thread_cond_wait(thread_cond_t *cond)
 	WaitForSingleObject(*cond, INFINITE);
 }
 
-void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
+bool thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 {
-	WaitForSingleObject(*cond, (DWORD)max_wait_time);
+	return (WaitForSingleObject(*cond, (DWORD)max_wait_time) == WAIT_OBJECT_0);
 }
 
 bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)

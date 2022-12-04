@@ -212,7 +212,7 @@ void thread_cond_wait(thread_cond_t *cond)
 	pthread_mutex_unlock(&cond->lock);
 }
 
-void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
+bool thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 {
 	pthread_mutex_lock(&cond->lock);
 
@@ -224,11 +224,15 @@ void thread_cond_wait_with_timeout(thread_cond_t *cond, uint64_t max_wait_time)
 		ts.tv_nsec = (long)(tv_nsec % 1000000000);
 		ts.tv_sec += (time_t)(tv_nsec / 1000000000);
 
-		pthread_cond_timedwait(&cond->cond, &cond->lock, &ts);
+		if (pthread_cond_timedwait(&cond->cond, &cond->lock, &ts) != 0) {
+			pthread_mutex_unlock(&cond->lock);
+			return false;
+		}
 	}
 
 	cond->signaled = false;
 	pthread_mutex_unlock(&cond->lock);
+	return true;
 }
 
 bool hdhomerun_vsprintf(char *buffer, char *end, const char *fmt, va_list ap)
