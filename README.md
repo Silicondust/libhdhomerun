@@ -19,6 +19,7 @@ Additional libraries required:
 ## Windows
 * Create a new Visual Studio project (empty C++)
 * Include all the .c and .h files, except `hdhomerun_os_posix.h`, `hdhomerun_os_posix.c`,  `hdhomerun_sock_getifaddrs.c`, `hdhomerun_sock_netdevice.c`, `hdhomerun_sock_netlink.c` & `hdhomerun_sock_posix.c` 
-* On the project properties page under C/C++ advanced, change the Compile As type to C, click apply and then change it back to C++ – this is a workaround for a bug in MSVC++.
 * Under the Linker input, add `Bcrypt.lib`, `Ws2_32.lib`, `iphlpapi.lib` as Additional Dependencies.
 * Build using Visual Studio
+
+If using VS2017 or earlier, on the project properties page under C/C++ advanced, change the Compile As type to C, click apply and then change it back to C++ – this is a workaround for a bug in MSVC++.
