@@ -136,7 +136,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 		return false;
 	}
 
-	int nl_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
+	int nl_sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	int af_sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if ((nl_sock == -1) || (af_sock == -1)) {
 		close(af_sock);

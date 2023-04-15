@@ -126,9 +126,11 @@ void hdhomerun_sock_set_ttl(struct hdhomerun_sock_t *sock, uint8_t ttl)
 	int sock_opt = (int)(unsigned int)ttl;
 	if (sock->af == AF_INET) {
 		setsockopt(sock->sock, IPPROTO_IP, IP_TTL, (char *)&sock_opt, sizeof(sock_opt));
+		setsockopt(sock->sock, IPPROTO_IP, IP_MULTICAST_TTL, (char *)&sock_opt, sizeof(sock_opt));
 	}
 	if (sock->af == AF_INET6) {
 		setsockopt(sock->sock, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&sock_opt, sizeof(sock_opt));
+		setsockopt(sock->sock, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (char *)&sock_opt, sizeof(sock_opt));
 	}
 
 	sock->ttl_set = ttl;
