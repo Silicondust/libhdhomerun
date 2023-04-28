@@ -863,7 +863,7 @@ static void hdhomerun_discover_recv_internal_auth_bin(char **poutput, struct hdh
 
 	int i;
 	for (i = 0; i < 24; i += 4) {
-		static char hdhomerun_discover_recv_base64_encode_table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+		static const char hdhomerun_discover_recv_base64_encode_table[64 + 1] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 		uint32_t raw24;
 		raw24 = (uint32_t)hdhomerun_pkt_read_u8(rx_pkt) << 16;

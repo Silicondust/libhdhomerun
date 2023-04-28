@@ -20,16 +20,39 @@
 
 #include "hdhomerun.h"
 
+void random_getbytes(uint8_t *out, size_t length)
+{
+	BCryptGenRandom(NULL, out, (ULONG)length, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+}
+
 uint32_t random_get32(void)
 {
-	uint32_t Result = 0;
-	BCryptGenRandom(NULL, (uint8_t *)&Result, 4, BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+	uint32_t Result;
+	random_getbytes((uint8_t *)&Result, 4);
 	return Result;
 }
 
 uint64_t getcurrenttime(void)
 {
 	return GetTickCount64();
+}
+
+uint64_t timer_get_hires_ticks(void)
+{
+	LARGE_INTEGER count;
+	if (!QueryPerformanceCounter(&count)) {
+		return 0;
+	}
+	return count.QuadPart;
+}
+
+uint64_t timer_get_hires_frequency(void)
+{
+	LARGE_INTEGER count;
+	if (!QueryPerformanceFrequency(&count)) {
+		return 0;
+	}
+	return count.QuadPart;
 }
 
 void msleep_approx(uint64_t ms)

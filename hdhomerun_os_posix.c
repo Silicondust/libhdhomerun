@@ -65,27 +65,31 @@ static inline void clock_realtime_timespec(struct timespec *ts)
 
 #endif
 
-static pthread_once_t random_get32_once = PTHREAD_ONCE_INIT;
-static FILE *random_get32_fp = NULL;
+static pthread_once_t random_getbytes_once = PTHREAD_ONCE_INIT;
+static FILE *random_getbytes_fp = NULL;
 
-static void random_get32_init(void)
+static void random_getbytes_init(void)
 {
-	random_get32_fp = fopen("/dev/urandom", "rb");
+	random_getbytes_fp = fopen("/dev/urandom", "rb");
+}
+
+void random_getbytes(uint8_t *out, size_t length)
+{
+	pthread_once(&random_getbytes_once, random_getbytes_init);
+
+	if (!random_getbytes_fp) {
+		exit(1);
+	}
+
+	if (fread(out, 1, length, random_getbytes_fp) != length) {
+		exit(1);
+	}
 }
 
 uint32_t random_get32(void)
 {
-	pthread_once(&random_get32_once, random_get32_init);
-
-	if (!random_get32_fp) {
-		return (uint32_t)getcurrenttime();
-	}
-
 	uint32_t Result;
-	if (fread(&Result, 4, 1, random_get32_fp) != 1) {
-		return (uint32_t)getcurrenttime();
-	}
-
+	random_getbytes((uint8_t *)&Result, 4);
 	return Result;
 }
 
@@ -94,6 +98,18 @@ uint64_t getcurrenttime(void)
 	struct timespec ts;
 	clock_monotonic_timespec(&ts);
 	return ((uint64_t)ts.tv_sec * 1000) + (ts.tv_nsec / 1000000);
+}
+
+uint64_t timer_get_hires_ticks(void)
+{
+	struct timespec ts;
+	clock_monotonic_timespec(&ts);
+	return ((uint64_t)ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+}
+
+uint64_t timer_get_hires_frequency(void)
+{
+	return 1000000;
 }
 
 void msleep_approx(uint64_t ms)

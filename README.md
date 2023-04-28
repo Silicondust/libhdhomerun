@@ -1,4 +1,4 @@
-Copyright © 2005-2022 Silicondust USA Inc. <www.silicondust.com>.
+Copyright © 2005-2023 Silicondust USA Inc. <www.silicondust.com>.
 
 This library implements the libhdhomerun protocol for use with Silicondust HDHomeRun TV tuners.
 
