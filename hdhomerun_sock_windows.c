@@ -27,6 +27,7 @@ struct hdhomerun_sock_t {
 	long events_selected;
 	int af;
 	uint8_t ttl_set;
+	bool shutdown;
 };
 
 bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callback, void *callback_arg)
@@ -181,7 +182,9 @@ void hdhomerun_sock_destroy(struct hdhomerun_sock_t *sock)
 
 void hdhomerun_sock_stop(struct hdhomerun_sock_t *sock)
 {
+	sock->shutdown = true;
 	shutdown(sock->sock, SD_BOTH);
+	SetEvent(sock->event);
 }
 
 void hdhomerun_sock_set_send_buffer_size(struct hdhomerun_sock_t *sock, size_t size)
@@ -373,6 +376,11 @@ static bool hdhomerun_sock_event_select(struct hdhomerun_sock_t *sock, long even
 	}
 
 	ResetEvent(sock->event);
+
+	if (sock->shutdown) {
+		return false;
+	}
+
 	return true;
 }
 
