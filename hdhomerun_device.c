@@ -1555,6 +1555,17 @@ int hdhomerun_device_upgrade(struct hdhomerun_device_t *hd, FILE *upgrade_file)
 	return hdhomerun_control_upgrade(hd->cs, upgrade_file);
 }
 
+int hdhomerun_device_upgrade_filename(struct hdhomerun_device_t *hd, char *filename)
+{
+  int ret;
+  FILE *fp = fopen(filename, "rb");
+  if (!fp)
+      return -1;
+  ret = hdhomerun_device_upgrade(hd, fp);
+  fclose(fp);
+  return ret;
+}
+
 void hdhomerun_device_debug_print_video_stats(struct hdhomerun_device_t *hd)
 {
 	if (!hdhomerun_debug_enabled(hd->dbg)) {
