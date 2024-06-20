@@ -25,6 +25,8 @@
 
 struct hdhomerun_device_t;
 struct hdhomerun_device_allocation_t;
+struct hdhomerun_device_selector_t;
+struct hdhomerun_discover_t;
 
 struct hdhomerun_tuner_status_t {
 	char channel[32];
