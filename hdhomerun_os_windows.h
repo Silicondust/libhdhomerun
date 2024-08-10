@@ -87,8 +87,11 @@ typedef HANDLE thread_cond_t;
 extern "C" {
 #endif
 
+extern LIBHDHOMERUN_API void random_getbytes(uint8_t *out, size_t length);
 extern LIBHDHOMERUN_API uint32_t random_get32(void);
 extern LIBHDHOMERUN_API uint64_t getcurrenttime(void);
+extern LIBHDHOMERUN_API uint64_t timer_get_hires_ticks(void);
+extern LIBHDHOMERUN_API uint64_t timer_get_hires_frequency(void);
 extern LIBHDHOMERUN_API void msleep_approx(uint64_t ms);
 extern LIBHDHOMERUN_API void msleep_minimum(uint64_t ms);
 

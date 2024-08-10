@@ -80,9 +80,14 @@ libhdhomerun$(LIBEXT) : $(LIBSRCS)
 
 endif
 
+hdhomerun_discover_example$(BINEXT): hdhomerun_discover_example.c $(LIBSRCS)
+	$(CC) $(CFLAGS) $+ $(LDFLAGS) -o $@
+	$(STRIP) $@
+
 clean :
 	-rm -f hdhomerun_config$(BINEXT)
 	-rm -f libhdhomerun$(LIBEXT)
+	-rm -f hdhomerun_discover_example$(BINEXT)
 
 distclean : clean
 
