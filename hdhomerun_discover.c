@@ -120,7 +120,7 @@ static void hdhomerun_discover_sock_add_ipv6(void *arg, uint32_t ifindex, const 
 	}
 
 	/* Create socket. */
-	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(sizeof(struct hdhomerun_discover_sock_t), 1);
+	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(1, sizeof(struct hdhomerun_discover_sock_t));
 	if (!dss) {
 		hdhomerun_debug_printf(ds->dbg, "discover: resource error\n");
 		return;
@@ -181,7 +181,7 @@ static void hdhomerun_discover_sock_add_ipv4(void *arg, uint32_t ifindex, const 
 	}
 
 	/* Create socket. */
-	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(sizeof(struct hdhomerun_discover_sock_t), 1);
+	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(1, sizeof(struct hdhomerun_discover_sock_t));
 	if (!dss) {
 		hdhomerun_debug_printf(ds->dbg, "discover: resource error\n");
 		return;
@@ -347,7 +347,7 @@ static void hdhomerun_discover_sock_detect_ipv6_localhost(struct hdhomerun_disco
 		return;
 	}
 
-	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(sizeof(struct hdhomerun_discover_sock_t), 1);
+	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(1, sizeof(struct hdhomerun_discover_sock_t));
 	if (!dss) {
 		return;
 	}
@@ -378,7 +378,7 @@ static void hdhomerun_discover_sock_detect_ipv4_localhost(struct hdhomerun_disco
 		return;
 	}
 
-	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(sizeof(struct hdhomerun_discover_sock_t), 1);
+	struct hdhomerun_discover_sock_t *dss = (struct hdhomerun_discover_sock_t *)calloc(1, sizeof(struct hdhomerun_discover_sock_t));
 	if (!dss) {
 		return;
 	}
@@ -772,31 +772,31 @@ static void hdhomerun_discover_send_ipv4_localhost(struct hdhomerun_discover_t *
 
 static uint8_t hdhomerun_discover_compute_device_if_priority(struct hdhomerun_discover2_device_if_t *device_if)
 {
-	if (hdhomerun_sock_sockaddr_is_ipv6_localhost((const struct sockaddr *)&device_if->ip_addr)) {
-		return 0; /* highest priority */
-	}
+	if (device_if->ip_addr.ss_family == AF_INET) {
+		if (hdhomerun_sock_sockaddr_is_ipv4_localhost((const struct sockaddr *)&device_if->ip_addr)) {
+			return 1; /* localhost ipv4 */
+		}
 
-	if (hdhomerun_sock_sockaddr_is_ipv4_localhost((const struct sockaddr *)&device_if->ip_addr)) {
-		return 1;
-	}
+		if (!hdhomerun_sock_sockaddr_is_ipv4_autoip((const struct sockaddr *)&device_if->ip_addr)) {
+			return 2; /* dhcp or static ipv4 */
+		}
 
-	if (device_if->ip_addr.ss_family == AF_INET6) {
+		return 6; /* auto ip */
+	} else {
+		if (hdhomerun_sock_sockaddr_is_ipv6_localhost((const struct sockaddr *)&device_if->ip_addr)) {
+			return 0; /* localhost ipv6 = highest priority */
+		}
+
 		if (hdhomerun_sock_sockaddr_is_ipv6_global((const struct sockaddr *)&device_if->ip_addr)) {
-			return 2;
+			return 3; /* global ipv6 */
 		}
 
 		if (!hdhomerun_sock_sockaddr_is_ipv6_linklocal((const struct sockaddr *)&device_if->ip_addr)) {
-			return 3;
+			return 4; /* site ipv6 */
 		}
 
-		return 4;
+		return 5; /* link-local ipv6 */
 	}
-
-	if (!hdhomerun_sock_sockaddr_is_ipv4_autoip((const struct sockaddr *)&device_if->ip_addr)) {
-		return 5;
-	}
-
-	return 6;
 }
 
 static void hdhomerun_discover_recv_internal_device_type(struct hdhomerun_discover2_device_t *device, struct hdhomerun_pkt_t *rx_pkt)
@@ -820,7 +820,7 @@ static void hdhomerun_discover_recv_internal_device_type(struct hdhomerun_discov
 		p = p->next;
 	}
 
-	struct hdhomerun_discover2_device_type_t *new_type = (struct hdhomerun_discover2_device_type_t *)calloc(sizeof(struct hdhomerun_discover2_device_type_t), 1);
+	struct hdhomerun_discover2_device_type_t *new_type = (struct hdhomerun_discover2_device_type_t *)calloc(1, sizeof(struct hdhomerun_discover2_device_type_t));
 	if (!new_type) {
 		return;
 	}
@@ -1231,8 +1231,8 @@ static bool hdhomerun_discover_recvfrom(struct hdhomerun_discover_t *ds, struct 
 		return activity;
 	}
 
-	struct hdhomerun_discover2_device_t *device = (struct hdhomerun_discover2_device_t *)calloc(sizeof(struct hdhomerun_discover2_device_t), 1);
-	struct hdhomerun_discover2_device_if_t *device_if = (struct hdhomerun_discover2_device_if_t *)calloc(sizeof(struct hdhomerun_discover2_device_if_t), 1);
+	struct hdhomerun_discover2_device_t *device = (struct hdhomerun_discover2_device_t *)calloc(1, sizeof(struct hdhomerun_discover2_device_t));
+	struct hdhomerun_discover2_device_if_t *device_if = (struct hdhomerun_discover2_device_if_t *)calloc(1, sizeof(struct hdhomerun_discover2_device_if_t));
 	if (!device || !device_if) {
 		if (device) {
 			free(device);
