@@ -59,7 +59,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 	}
 
 	int ifreq_buffer_size = 128 * sizeof(struct ifreq);
-	char *ifreq_buffer = (char *)calloc(ifreq_buffer_size, 1);
+	char *ifreq_buffer = (char *)calloc(1, ifreq_buffer_size);
 	if (!ifreq_buffer) {
 		close(sock);
 		return false;

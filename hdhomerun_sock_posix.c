@@ -281,6 +281,29 @@ bool hdhomerun_sock_bind_ex(struct hdhomerun_sock_t *sock, const struct sockaddr
 	return true;
 }
 
+static bool hdhomerun_sock_poll(struct hdhomerun_sock_t *sock, short events, uint64_t current_time, uint64_t stop_time)
+{
+	struct pollfd poll_event;
+	poll_event.fd = sock->sock;
+	poll_event.events = events;
+	poll_event.revents = 0;
+
+	while (current_time < stop_time) {
+		uint64_t timeout = stop_time - current_time;
+		if (poll(&poll_event, 1, (int)timeout) > 0) {
+			return (poll_event.revents & events) != 0;
+		}
+
+		if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINPROGRESS)) {
+			return false;
+		}
+
+		current_time = getcurrenttime();
+	}
+
+	return false;
+}
+
 bool hdhomerun_sock_connect_ex(struct hdhomerun_sock_t *sock, const struct sockaddr *remote_addr, uint64_t timeout)
 {
 	socklen_t remote_addr_size;
@@ -301,16 +324,8 @@ bool hdhomerun_sock_connect_ex(struct hdhomerun_sock_t *sock, const struct socka
 		}
 	}
 
-	struct pollfd poll_event;
-	poll_event.fd = sock->sock;
-	poll_event.events = POLLOUT;
-	poll_event.revents = 0;
-
-	if (poll(&poll_event, 1, (int)timeout) <= 0) {
-		return false;
-	}
-
-	if ((poll_event.revents & POLLOUT) == 0) {
+	uint64_t current_time = getcurrenttime();
+	if (!hdhomerun_sock_poll(sock, POLLOUT, current_time, current_time + timeout)) {
 		return false;
 	}
 
@@ -334,19 +349,11 @@ bool hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t
 		length -= ret;
 	}
 
-	uint64_t stop_time = getcurrenttime() + timeout;
+	uint64_t current_time = getcurrenttime();
+	uint64_t stop_time = current_time + timeout;
 
 	while (1) {
-		struct pollfd poll_event;
-		poll_event.fd = sock->sock;
-		poll_event.events = POLLOUT;
-		poll_event.revents = 0;
-
-		if (poll(&poll_event, 1, (int)timeout) <= 0) {
-			return false;
-		}
-
-		if ((poll_event.revents & POLLOUT) == 0) {
+		if (!hdhomerun_sock_poll(sock, POLLOUT, current_time, stop_time)) {
 			return false;
 		}
 
@@ -364,12 +371,7 @@ bool hdhomerun_sock_send(struct hdhomerun_sock_t *sock, const void *data, size_t
 			length -= ret;
 		}
 
-		uint64_t current_time = getcurrenttime();
-		if (current_time >= stop_time) {
-			return false;
-		}
-
-		timeout = stop_time - current_time;
+		current_time = getcurrenttime();
 	}
 }
 
@@ -402,19 +404,11 @@ bool hdhomerun_sock_sendto_ex(struct hdhomerun_sock_t *sock, const struct sockad
 		length -= ret;
 	}
 
-	uint64_t stop_time = getcurrenttime() + timeout;
+	uint64_t current_time = getcurrenttime();
+	uint64_t stop_time = current_time + timeout;
 
 	while (1) {
-		struct pollfd poll_event;
-		poll_event.fd = sock->sock;
-		poll_event.events = POLLOUT;
-		poll_event.revents = 0;
-
-		if (poll(&poll_event, 1, (int)timeout) <= 0) {
-			return false;
-		}
-
-		if ((poll_event.revents & POLLOUT) == 0) {
+		if (!hdhomerun_sock_poll(sock, POLLOUT, current_time, stop_time)) {
 			return false;
 		}
 
@@ -432,12 +426,7 @@ bool hdhomerun_sock_sendto_ex(struct hdhomerun_sock_t *sock, const struct sockad
 			length -= ret;
 		}
 
-		uint64_t current_time = getcurrenttime();
-		if (current_time >= stop_time) {
-			return false;
-		}
-
-		timeout = stop_time - current_time;
+		current_time = getcurrenttime();
 	}
 }
 
@@ -456,26 +445,18 @@ bool hdhomerun_sock_recv(struct hdhomerun_sock_t *sock, void *data, size_t *leng
 		return false;
 	}
 
-	struct pollfd poll_event;
-	poll_event.fd = sock->sock;
-	poll_event.events = POLLIN;
-	poll_event.revents = 0;
-
-	if (poll(&poll_event, 1, (int)timeout) <= 0) {
-		return false;
-	}
-
-	if ((poll_event.revents & POLLIN) == 0) {
+	uint64_t current_time = getcurrenttime();
+	if (!hdhomerun_sock_poll(sock, POLLIN, current_time, current_time + timeout)) {
 		return false;
 	}
 
 	ret = recv(sock->sock, data, *length, 0);
-	if (ret > 0) {
-		*length = (size_t)ret;
-		return true;
+	if (ret <= 0) {
+		return false;
 	}
 
-	return false;
+	*length = (size_t)ret;
+	return true;
 }
 
 bool hdhomerun_sock_recvfrom_ex(struct hdhomerun_sock_t *sock, struct sockaddr_storage *remote_addr, void *data, size_t *length, uint64_t timeout)
@@ -494,24 +475,16 @@ bool hdhomerun_sock_recvfrom_ex(struct hdhomerun_sock_t *sock, struct sockaddr_s
 		return false;
 	}
 
-	struct pollfd poll_event;
-	poll_event.fd = sock->sock;
-	poll_event.events = POLLIN;
-	poll_event.revents = 0;
-
-	if (poll(&poll_event, 1, (int)timeout) <= 0) {
-		return false;
-	}
-
-	if ((poll_event.revents & POLLIN) == 0) {
+	uint64_t current_time = getcurrenttime();
+	if (!hdhomerun_sock_poll(sock, POLLIN, current_time, current_time + timeout)) {
 		return false;
 	}
 
 	ret = recvfrom(sock->sock, data, *length, 0, (struct sockaddr *)remote_addr, &sockaddr_size);
-	if (ret > 0) {
-		*length = (size_t)ret;
-		return true;
+	if (ret <= 0) {
+		return false;
 	}
 
-	return false;
+	*length = (size_t)ret;
+	return true;
 }
