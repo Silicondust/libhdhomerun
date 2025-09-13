@@ -67,8 +67,8 @@ else (WIN32)
   if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(hdhomerun_sources
       ${hdhomerun_sources}
-      #hdhomerun_sock_netdevice.c
-      hdhomerun_sock_netlink.c
+      hdhomerun_sock_netdevice.c
+      #hdhomerun_sock_netlink.c
       )
     set(hdhomerun_libs ${hdhomerun_libs} rt)
   else()
