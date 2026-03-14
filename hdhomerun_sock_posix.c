@@ -290,12 +290,13 @@ static bool hdhomerun_sock_poll(struct hdhomerun_sock_t *sock, short events, uin
 
 	while (current_time < stop_time) {
 		uint64_t timeout = stop_time - current_time;
-		if (poll(&poll_event, 1, (int)timeout) > 0) {
-			return (poll_event.revents & events) != 0;
+		int ret = poll(&poll_event, 1, (int)timeout);
+		if (ret < 0) {
+			return false;
 		}
 
-		if ((errno != EAGAIN) && (errno != EWOULDBLOCK) && (errno != EINPROGRESS)) {
-			return false;
+		if (ret > 0) {
+			return (poll_event.revents & events) != 0;
 		}
 
 		current_time = getcurrenttime();
