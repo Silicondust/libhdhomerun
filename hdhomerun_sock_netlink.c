@@ -147,7 +147,7 @@ bool hdhomerun_local_ip_info2(int af, hdhomerun_local_ip_info2_callback_t callba
 
 	struct nlmsghdr_ifaddrmsg req;
 	memset(&req, 0, sizeof(req));
-	req.nlh.nlmsg_len = NLMSG_ALIGN(NLMSG_LENGTH(sizeof(req)));
+	req.nlh.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
 	req.nlh.nlmsg_type = RTM_GETADDR;
 	req.nlh.nlmsg_flags = NLM_F_REQUEST | NLM_F_MATCH;
 	req.msg.ifa_family = af;
