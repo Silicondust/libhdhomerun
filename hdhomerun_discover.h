@@ -17,6 +17,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,8 +44,8 @@ extern LIBHDHOMERUN_API void hdhomerun_discover_destroy(struct hdhomerun_discove
  * Discover API:
  *
  * Use hdhomerun_discover2_find_devices_broadcast() to find all devices on the local subnet.
- * flags: IPv4 only use HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL
- * flags: IPv4 and IPv6 use HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV6_GENERAL
+ * flags: IPv4 only use HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV4_LOCALHOST
+ * flags: IPv4 and IPv6 use HDHOMERUN_DISCOVER_FLAGS_IPV4_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV4_LOCALHOST | HDHOMERUN_DISCOVER_FLAGS_IPV6_GENERAL | HDHOMERUN_DISCOVER_FLAGS_IPV6_LOCALHOST
  * flags: Linklocal IPv6 requires special handling (scope id) - only include HDHOMERUN_DISCOVER_FLAGS_IPV6_LINKLOCAL if the app tracks scope id needed for linklocal IPv6.
  * device_types: do not use HDHOMERUN_DEVICE_TYPE_WILDCARD, instead provide an array of types the app wants to discover, for example:
  *		uint32_t device_types[2];

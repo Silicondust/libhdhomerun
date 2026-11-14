@@ -1,5 +1,5 @@
 /*
- * hdhomerun_sock_getifaddrs.c
+ * hdhomerun_sock_netdevice.c
  *
  * Copyright © 2010-2022 Silicondust USA Inc. <www.silicondust.com>.
  *

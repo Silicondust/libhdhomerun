@@ -19,6 +19,7 @@
  */
 
 #define _FILE_OFFSET_BITS 64
+#define _LARGEFILE64_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>

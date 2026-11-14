@@ -139,6 +139,12 @@ static const struct hdhomerun_channelmap_range_t hdhomerun_channelmap_range_us_i
 	{  0,   0,         0,       0}
 };
 
+/* US HAM channels. */
+static const struct hdhomerun_channelmap_range_t hdhomerun_channelmap_range_us_ham[] = {
+	{ 21,  49, 421000000, 1000000},
+	{  0,   0,         0,       0}
+};
+
 static const struct hdhomerun_channelmap_record_t hdhomerun_channelmap_table[] = {
 	{"au-bcast", hdhomerun_channelmap_range_au_bcast, "au-bcast",               "AU"},
 	{"au-cable", hdhomerun_channelmap_range_eu_cable, "au-cable",               "AU"},
@@ -146,6 +152,7 @@ static const struct hdhomerun_channelmap_record_t hdhomerun_channelmap_table[] =
 	{"eu-cable", hdhomerun_channelmap_range_eu_cable, "eu-cable",               NULL},
 	{"tw-bcast", hdhomerun_channelmap_range_tw_bcast, "tw-bcast",               "TW"},
 	{"tw-cable", hdhomerun_channelmap_range_us_cable, "tw-cable",               "TW"},
+	{"us-ham",   hdhomerun_channelmap_range_us_ham,   "us-ham",                 NULL},
 
 	{"kr-bcast", hdhomerun_channelmap_range_us_bcast, "kr-bcast",               "KR"},
 	{"kr-cable", hdhomerun_channelmap_range_kr_cable, "kr-cable",               "KR"},
@@ -154,7 +161,7 @@ static const struct hdhomerun_channelmap_record_t hdhomerun_channelmap_table[] =
 	{"us-hrc",   hdhomerun_channelmap_range_us_hrc  , "us-cable us-hrc us-irc", NULL},
 	{"us-irc",   hdhomerun_channelmap_range_us_irc,   "us-cable us-hrc us-irc", NULL},
 
-	{"jp-bcast", hdhomerun_channelmap_range_jp_bcast, "jp-bcast",               "JP" },
+	{"jp-bcast", hdhomerun_channelmap_range_jp_bcast, "jp-bcast",               "JP"},
 	{ NULL, NULL, NULL, NULL }
 };
 
