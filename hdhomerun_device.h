@@ -247,6 +247,7 @@ extern LIBHDHOMERUN_API uint8_t hdhomerun_device_channelscan_get_progress(struct
  * Returns -1 if an error occurs.
  */
 extern LIBHDHOMERUN_API int hdhomerun_device_upgrade(struct hdhomerun_device_t *hd, FILE *upgrade_file);
+extern LIBHDHOMERUN_API int hdhomerun_device_upgrade_filename(struct hdhomerun_device_t *hd, char *filename);
 
 /*
  * Low level accessor functions. 
